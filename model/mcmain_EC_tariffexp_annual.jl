@@ -1,5 +1,5 @@
 using Pkg
-install = 1
+install = 0
 if install == 1
     Pkg.add("Parameters")
     Pkg.add("Plots")
