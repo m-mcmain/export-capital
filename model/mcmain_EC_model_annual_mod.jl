@@ -361,9 +361,9 @@ function MSM_delta_func_first3(x)
     res.β_sq_d = x[3]
     res.FC_0 = x[4]
     res.FC_1 = x[5]
-    res.C_star = x[6]
-    res.ρ_e = x[7]
-    res.σ_e = x[8]
+    #res.C_star = x[6]
+    #res.ρ_e = x[7]
+    #res.σ_e = x[8]
     if x[1] < 1
         res.prev_ex_grid = unique(decay_grid(x[1], x[2], x[3], 13-2))
         res.n_prev_ex = length(res.prev_ex_grid)
@@ -621,10 +621,10 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
         res.τ = 0/100
         Solve_model(prim, res)
         
-        save_object("/objects/normal_val_func_$filename.jld2", res.val_func)
-        save_object("/objects/normal_ex_func_$filename.jld2", res.ex_func)
-        save_object("/objects/normal_n_func_$filename.jld2", res.n_func)
-        save_object("/objects/normal_k_func_$filename.jld2", res.k_func)
+        save_object(".\\objects\\normal_val_func_$filename.jld2", res.val_func)
+        save_object("./objects/normal_ex_func_$filename.jld2", res.ex_func)
+        save_object("./objects/normal_n_func_$filename.jld2", res.n_func)
+        save_object("./objects/normal_k_func_$filename.jld2", res.k_func)
 
         normal_val_func = copy(res.val_func)
         normal_ex_func = copy(res.ex_func)
@@ -639,10 +639,10 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
             tariff_n_func = copy(res.n_func)
             tariff_k_func = copy(res.k_func)
             
-            save_object("/objects/tariff_val_func_$filename.jld2", res.val_func)
-            save_object("/objects/tariff_ex_func_$filename.jld2", res.ex_func)
-            save_object("/objects/tariff_n_func_$filename.jld2", res.n_func)
-            save_object("/objects/tariff_k_func_$filename.jld2", res.k_func)
+            save_object("./objects/tariff_val_func_$filename.jld2", res.val_func)
+            save_object("./objects/tariff_ex_func_$filename.jld2", res.ex_func)
+            save_object("./objects/tariff_n_func_$filename.jld2", res.n_func)
+            save_object("./objects/tariff_k_func_$filename.jld2", res.k_func)
     
         else
             res.τ = 0/100
@@ -675,14 +675,21 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
         for i = 2:n_periods_experiment
 
             Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + rand(Normal(0, σ_q)))
-            if Q_experiment[i] > 3
-                Q_experiment[i] == 3
+            if Q_experiment[i] > max(Q_grid)
+                Q_experiment[i] = max(Q_grid)
+            elseif Q_experiment[i] < min(Q_grid)
+                Q_experiment[i] = min(Q_grid)
             end
             Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
 
             for j = 1:n_firms
                 
                 ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
+                if ϵ_experiment[i,j] > max(ϵ_grid)
+                    ϵ_experiment[i,j] = max(ϵ_grid)
+                elseif ϵ_experiment[i,j] < min(ϵ_grid)
+                    ϵ_experiment[i,j] = min(ϵ_grid)
+                end
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
 
                 if i < 107 && i > 105

@@ -1,5 +1,5 @@
 using Pkg
-install = 0
+install = 1
 if install == 1
     Pkg.add("Parameters")
     Pkg.add("Plots")
@@ -21,11 +21,8 @@ end
 using Parameters, Plots, StatsPlots, Optim, Distributions, SharedArrays, Distributed, Random, JLD2, Statistics, StatsBase, GLM, DataFrames, OrderedCollections, LinearAlgebra, FixedEffectModels, QuantEcon
 
 #addprocs(15)
-
-cd("C:\\Users\\micha\\OneDrive\\Documents\\PhD\\Second Year\\Exporting to Friends\\Ruhl & Willis 2017")
 include("mcmain_EC_model_annual_mod.jl")
 Random.seed!(17)
-#=
 ############################################################
 #                 Tariff - Experiment                      #
 ############################################################
@@ -39,7 +36,7 @@ firms_labor_decisions_Base = ones(prim.n_periods_experiment, prim.n_firms, prim.
 firms_capital_decisions_Base = ones(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_domestic_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
-@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base = tariff_experiment(prim, res, 10, 0, filename)
+@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base = tariff_experiment(prim, res, 10, 1, filename)
 Start_Base, Stop_Base, Foreign_Sales_Base, Sales_Base, Production_Base, output_Base = moment_calc_nsims(firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base)
 print(median(firms_sales_Base[105:112,:,:].-firms_sales_domestic_Base[105:112,:,:]))
 print("\\")
@@ -95,6 +92,7 @@ savefig("production_compare_annual.png")
 ############################################################
 #                    Q - Experiment                        #
 ############################################################
+#=
 base = 1 # 1 for base model, 3 for delta
 delta = 3
 filename = "base_annual"
@@ -159,7 +157,7 @@ firms_labor_decisions_Base = ones(prim.n_periods_experiment, prim.n_firms, prim.
 firms_capital_decisions_Base = ones(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_domestic_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
-@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base = Q_experiment(prim, res, filename)
+@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base = export_experience_experiment(prim, res, filename)
 Start_Base, Stop_Base, Foreign_Sales_Base, Sales_Base, Production_Base, output_Base = moment_calc_nsims(firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base)
 
 filename = "delta_annual"
@@ -170,7 +168,7 @@ firms_labor_decisions_Delta = ones(prim.n_periods_experiment, prim.n_firms, prim
 firms_capital_decisions_Delta = ones(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_domestic_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
-@time firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta = Q_experiment(prim, res, filename)
+@time firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta = export_experience_experiment(prim, res, filename)
 Start_Delta, Stop_Delta, Foreign_Sales_Delta, Sales_Delta, Production_Delta, output_Delta = moment_calc_nsims(firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta)
 
 periods = range(-1,6,length=8)
