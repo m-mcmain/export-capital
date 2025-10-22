@@ -49,7 +49,7 @@ mutable struct Results
     ϵ_experiment::SharedArray{Float64, 2} # Productivity for the firm
     Q_experiment::SharedArray{Float64, 1} # Real Exchange Rate
     val_func::Array{Float64, 3} # Value function
-    τ::Float64
+    τ::Float64 # Tariff Rate
     # Estimated Parameters:
     C_star::Float64 # Foreign demand scale guess
     σ_e::Float64 # s.e. for productivity shock guess
@@ -652,7 +652,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
             tariff_k_func = copy(res.k_func)
         end
     else
-        normal_val_func = load_object(".\\objects\\normal_val_func_$filename.jld2")
+        normal_val_func = load_object("./objects/normal_val_func_$filename.jld2")
         normal_ex_func = load_object("./objects/normal_ex_func_$filename.jld2")
         normal_n_func = load_object("./objects/normal_n_func_$filename.jld2")
         normal_k_func = load_object("./objects/normal_k_func_$filename.jld2")
@@ -675,20 +675,20 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
         for i = 2:n_periods_experiment
 
             Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + rand(Normal(0, σ_q)))
-            if Q_experiment[i] > max(Q_grid)
-                Q_experiment[i] = max(Q_grid)
-            elseif Q_experiment[i] < min(Q_grid)
-                Q_experiment[i] = min(Q_grid)
+            if Q_experiment[i] > maximum(Q_grid)
+                Q_experiment[i] = maximum(Q_grid)
+            elseif Q_experiment[i] < minimum(Q_grid)
+                Q_experiment[i] = minimum(Q_grid)
             end
             Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
 
             for j = 1:n_firms
                 
                 ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
-                if ϵ_experiment[i,j] > max(ϵ_grid)
-                    ϵ_experiment[i,j] = max(ϵ_grid)
-                elseif ϵ_experiment[i,j] < min(ϵ_grid)
-                    ϵ_experiment[i,j] = min(ϵ_grid)
+                if ϵ_experiment[i,j] > maximum(ϵ_grid)
+                    ϵ_experiment[i,j] = maximum(ϵ_grid)
+                elseif ϵ_experiment[i,j] < minimum(ϵ_grid)
+                    ϵ_experiment[i,j] = minimum(ϵ_grid)
                 end
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
 
