@@ -745,6 +745,11 @@ function Q_experiment(prim::Primitives, res::Results, filename::AbstractString)
             for j = 1:n_firms
                 
                 ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
+                if ϵ_experiment[i,j] > maximum(ϵ_grid)
+                    ϵ_experiment[i,j] = maximum(ϵ_grid)
+                elseif ϵ_experiment[i,j] < minimum(ϵ_grid)
+                    ϵ_experiment[i,j] = minimum(ϵ_grid)
+                end
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
 
                 if i < 107 && i > 105
@@ -793,18 +798,30 @@ function export_experience_experiment(prim::Primitives, res::Results, filename::
     for k = 1:n_sims
         Random.seed!(k)
         for i = 2:n_periods_experiment
-            
+
             Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + rand(Normal(0, σ_q)))
-            if Q_experiment[i] > 3
-                Q_experiment[i] == 3
+            if Q_experiment[i] > maximum(Q_grid)
+                Q_experiment[i] = maximum(Q_grid)
+            elseif Q_experiment[i] < minimum(Q_grid)
+                Q_experiment[i] = minimum(Q_grid)
             end
             Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
 
             for j = 1:n_firms
                 
                 ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
+                if ϵ_experiment[i,j] > maximum(ϵ_grid)
+                    ϵ_experiment[i,j] = maximum(ϵ_grid)
+                elseif ϵ_experiment[i,j] < minimum(ϵ_grid)
+                    ϵ_experiment[i,j] = minimum(ϵ_grid)
+                end
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 
+                # I really don't know why this is needed but it is
+                if floor(Int,firms_export_capital[i-1,j,k]) == 0
+                    firms_export_capital[i-1,j,k] = 1
+                end
+
                 firms_export_decisions[i,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                 if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
                     firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
