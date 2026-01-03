@@ -36,6 +36,7 @@
     true_enter_five_perc::Float64 = 0.0018 # True firms who enter five times
     true_coef_var::Float64 = 0.09592415 # True coefficient of variation
     true_a_exp_growth::Float64 = 0.45127586 # True regression coefficient on log sales growth
+    true_avg_time_out_reentrant::Float64 = 2.0712766 # True average time out of the export market for re-entrants
 
 end
 
@@ -67,15 +68,24 @@ mutable struct Results
     tauchen_trans_e::Array{Float64,2} # Tauchen's Method Transition Probs for ϵ
 end
 
-function decay_grid(intercept::Float64, coefficient::Float64, coef_sq::Float64, n_grid::Int64)
+function decay_grid(intercept::Float64, coefficient::Float64, coef_sq::Float64, n_grid::Int64, type::Int64)
+    # Type = 1 means Quadratic. Exponential, otherwise. 
 
-    grid_d = [1.0]
-    for i =0:n_grid-1
-        d_left = min(max(1-(intercept + coefficient*i+coef_sq*i^2),0),1)
-        append!(grid_d, d_left)
+    if type == 1
+        grid_d = [1.0]
+        for i =0:n_grid-1
+            d_left = min(max(1-(intercept + coefficient*i+coef_sq*i^2),0),1)
+            append!(grid_d, d_left)
+        end
+    else
+        grid_d = [1.0]
+        for i = 0:n_grid-1
+            d_left = min(max(1-(intercept^i),0),1)
+            append!(grid_d, d_left)
+        end
     end
-    append!(grid_d, 0)
 
+    append!(grid_d, 0)
     return reverse(grid_d)
 end
 
@@ -123,7 +133,7 @@ function Initialize(base::Int64)
         n_prev_ex = 2 # Number of previous export states
         prev_ex_grid = [0, 1]
     else
-        prev_ex_grid = unique(decay_grid(α_d, β_d, β_sq_d, 13-2))
+        prev_ex_grid = unique(decay_grid(δ, β_d, β_sq_d, 13-2, 2))
         n_prev_ex = length(prev_ex_grid)
     end
     n_func = SharedArray{Float64}(zeros(prim.nQ, prim.nϵ, n_prev_ex)) # initial worker function guess
@@ -356,16 +366,17 @@ end
 function MSM_delta_func_first3(x)
     prim, res = Initialize(3) #initialize primitive and results structs
 
-    res.α_d = x[1]
-    res.β_d = x[2]
-    res.β_sq_d = x[3]
-    res.FC_0 = x[4]
-    res.FC_1 = x[5]
-    #res.C_star = x[6]
-    #res.ρ_e = x[7]
-    #res.σ_e = x[8]
+    # res.α_d = x[1]
+    # res.β_d = x[2]
+    # res.β_sq_d = x[3]
+    res.δ = x[1]
+    res.FC_0 = x[2]
+    res.FC_1 = x[3]
+    res.C_star = x[4]
+    res.ρ_e = x[5]
+    res.σ_e = x[6]
     if x[1] < 1
-        res.prev_ex_grid = unique(decay_grid(x[1], x[2], x[3], 13-2))
+        res.prev_ex_grid = unique(decay_grid(x[1], x[2], x[3], 13-2, 2))
         res.n_prev_ex = length(res.prev_ex_grid)
         res.n_func = SharedArray{Float64}(zeros(prim.nQ, prim.nϵ, res.n_prev_ex)) # initial worker function guess
         res.k_func = SharedArray{Float64}(zeros(prim.nQ, prim.nϵ, res.n_prev_ex)) # initial capital function guess
@@ -388,13 +399,14 @@ function MSM_delta_func_first3(x)
     annual_firms_sales_foreign = zeros(12, prim.n_firms, prim.n_sims)
     annual_total_sales_foreign = zeros(12, prim.n_sims)
     annual_total_sales = zeros(12)
-    prop_one_entry = zeros(prim.n_sims)
-    prop_two_entry = zeros(prim.n_sims)
-    prop_three_entry = zeros(prim.n_sims)
-    prop_four_entry = zeros(prim.n_sims)
-    prop_five_entry = zeros(prim.n_sims)
-    prop_six_entry = zeros(prim.n_sims)
-    prop_seven_entry = zeros(prim.n_sims)
+    # prop_one_entry = zeros(prim.n_sims)
+    # prop_two_entry = zeros(prim.n_sims)
+    # prop_three_entry = zeros(prim.n_sims)
+    # prop_four_entry = zeros(prim.n_sims)
+    # prop_five_entry = zeros(prim.n_sims)
+    # prop_six_entry = zeros(prim.n_sims)
+    # prop_seven_entry = zeros(prim.n_sims)
+    avg_time_out_reentrant = zeros(prim.n_sims)
 
     for j = 1:12
         val_annual_firms_export_decisions[j,:,:] = val_annual_firms_export_decisions[j,:,:] .+ firms_export_decisions[j+100,:,:]
@@ -463,87 +475,121 @@ function MSM_delta_func_first3(x)
 
     β_moment = coef(reg_results)
 
-    for k = 1:prim.n_sims
-        n_no_entry = 0
-        n_one_entry = 0
-        n_two_entries = 0
-        n_three_entries = 0
-        n_four_entries = 0
-        n_five_entries = 0
-        n_six_entries = 0
-        n_seven_entries = 0
-        export_entries = Vector{Int64}()
-        export_entries_no_zero = Vector{Int64}()
+    # for k = 1:prim.n_sims
+    #     n_no_entry = 0
+    #     n_one_entry = 0
+    #     n_two_entries = 0
+    #     n_three_entries = 0
+    #     n_four_entries = 0
+    #     n_five_entries = 0
+    #     n_six_entries = 0
+    #     n_seven_entries = 0
+    #     export_entries = Vector{Int64}()
+    #     export_entries_no_zero = Vector{Int64}()
 
-        for i = 1:prim.n_firms
-            exporter_i_map = countmap(vcat(annual_firms_export_change[:,i,k],1))
-            if exporter_i_map[1] == 2
-                n_one_entry = n_one_entry + 1
-                export_entries = push!(export_entries, 1)
-                export_entries_no_zero = push!(export_entries_no_zero, 1)
-            elseif exporter_i_map[1] == 3
-                n_two_entries = n_two_entries + 1
-                export_entries =  push!(export_entries, 2)
-                export_entries_no_zero = push!(export_entries_no_zero, 2)
-            elseif exporter_i_map[1] == 4
-                n_three_entries = n_three_entries + 1
-                export_entries =  push!(export_entries, 3)
-                export_entries_no_zero = push!(export_entries_no_zero, 3)
-            elseif exporter_i_map[1] == 5
-                n_four_entries = n_four_entries + 1
-                export_entries =  push!(export_entries, 4)
-                export_entries_no_zero = push!(export_entries_no_zero, 4)
-            elseif exporter_i_map[1] == 6
-                n_five_entries = n_five_entries + 1
-                export_entries =  push!(export_entries, 5)
-                export_entries_no_zero = push!(export_entries_no_zero, 5)
-            elseif exporter_i_map[1] == 7
-                n_six_entries = n_six_entries + 1
-                export_entries =  push!(export_entries, 6)
-                export_entries_no_zero = push!(export_entries_no_zero, 6)
-            elseif exporter_i_map[1] == 8
-                n_seven_entries = n_seven_entries + 1
-                export_entries =  push!(export_entries, 7)
-                export_entries_no_zero = push!(export_entries_no_zero, 7)
-            elseif exporter_i_map[1] == 1
-                n_no_entry = n_no_entry + 1
-                export_entries =  push!(export_entries, 0)
-            end
-        end
+    #     for i = 1:prim.n_firms
+    #         exporter_i_map = countmap(vcat(annual_firms_export_change[:,i,k],1))
+    #         if exporter_i_map[1] == 2
+    #             n_one_entry = n_one_entry + 1
+    #             export_entries = push!(export_entries, 1)
+    #             export_entries_no_zero = push!(export_entries_no_zero, 1)
+    #         elseif exporter_i_map[1] == 3
+    #             n_two_entries = n_two_entries + 1
+    #             export_entries =  push!(export_entries, 2)
+    #             export_entries_no_zero = push!(export_entries_no_zero, 2)
+    #         elseif exporter_i_map[1] == 4
+    #             n_three_entries = n_three_entries + 1
+    #             export_entries =  push!(export_entries, 3)
+    #             export_entries_no_zero = push!(export_entries_no_zero, 3)
+    #         elseif exporter_i_map[1] == 5
+    #             n_four_entries = n_four_entries + 1
+    #             export_entries =  push!(export_entries, 4)
+    #             export_entries_no_zero = push!(export_entries_no_zero, 4)
+    #         elseif exporter_i_map[1] == 6
+    #             n_five_entries = n_five_entries + 1
+    #             export_entries =  push!(export_entries, 5)
+    #             export_entries_no_zero = push!(export_entries_no_zero, 5)
+    #         elseif exporter_i_map[1] == 7
+    #             n_six_entries = n_six_entries + 1
+    #             export_entries =  push!(export_entries, 6)
+    #             export_entries_no_zero = push!(export_entries_no_zero, 6)
+    #         elseif exporter_i_map[1] == 8
+    #             n_seven_entries = n_seven_entries + 1
+    #             export_entries =  push!(export_entries, 7)
+    #             export_entries_no_zero = push!(export_entries_no_zero, 7)
+    #         elseif exporter_i_map[1] == 1
+    #             n_no_entry = n_no_entry + 1
+    #             export_entries =  push!(export_entries, 0)
+    #         end
+    #     end
 
-        prop_two_entry[k] = n_two_entries/(prim.n_firms-n_no_entry)
-        prop_three_entry[k] = n_three_entries/(prim.n_firms-n_no_entry)
-        prop_four_entry[k] = n_four_entries/(prim.n_firms-n_no_entry)
-        prop_five_entry[k] = n_five_entries/(prim.n_firms-n_no_entry)
-        prop_six_entry[k] = n_six_entries/(prim.n_firms-n_no_entry)
-        prop_seven_entry[k] = n_seven_entries/(prim.n_firms-n_no_entry)
-        prop_one_entry[k] = n_one_entry/(prim.n_firms-n_no_entry)
+    #     prop_two_entry[k] = n_two_entries/(prim.n_firms-n_no_entry)
+    #     prop_three_entry[k] = n_three_entries/(prim.n_firms-n_no_entry)
+    #     prop_four_entry[k] = n_four_entries/(prim.n_firms-n_no_entry)
+    #     prop_five_entry[k] = n_five_entries/(prim.n_firms-n_no_entry)
+    #     prop_six_entry[k] = n_six_entries/(prim.n_firms-n_no_entry)
+    #     prop_seven_entry[k] = n_seven_entries/(prim.n_firms-n_no_entry)
+    #     prop_one_entry[k] = n_one_entry/(prim.n_firms-n_no_entry)
+    # end
+
+    # prop_one_entry_mean = round(mean(prop_one_entry), digits = 4)
+    # prop_two_entry_mean = round(mean(prop_two_entry), digits = 4)
+    # prop_three_entry_mean = round(mean(prop_three_entry), digits = 4)
+    # prop_four_entry_mean = round(mean(prop_four_entry), digits = 4)
+    # prop_five_entry_mean = round(mean(prop_five_entry), digits = 4)
+
+    # distribution_SSE = (prop_two_entry_mean-prim.true_enter_twice_perc)^2+(prop_one_entry_mean-prim.true_enter_once_perc)^2+(prop_three_entry_mean-prim.true_enter_thrice_perc)^2+(prop_four_entry_mean-prim.true_enter_four_perc)^2+(prop_five_entry_mean-prim.true_enter_five_perc)^2
+
+    exits_all = annual_firms_export_change == -1
+    exits_cumulative = copy(exits_all)
+    final_exit_no_reentry = ones(12, prim.n_firms, prim.n_sims)
+    entries_all = annual_firms_export_change == 1
+
+    for i in 2:12
+        exits_cumulative[i,:,:] = (exits_cumulative[i,:,:] .+ exits_cumulative[i-1,:,:])
     end
 
-    prop_one_entry_mean = round(mean(prop_one_entry), digits = 4)
-    prop_two_entry_mean = round(mean(prop_two_entry), digits = 4)
-    prop_three_entry_mean = round(mean(prop_three_entry), digits = 4)
-    prop_four_entry_mean = round(mean(prop_four_entry), digits = 4)
-    prop_five_entry_mean = round(mean(prop_five_entry), digits = 4)
+    # Set entries where the firm is exporting equal to zero, keeping strings of numbers with length equal to years out of each exit
+    exits_cumulative = exits_cumulative .* (ones(:,prim.n_firms,prim.n_sims) .- annual_firms_export_decisions[:,:,:])
+    # Test if that exit is the final exit and has no re-entry tied to it
+    for i in 1:11
+        final_exit_no_reentry[i,:,:] = (exits_cumulative[i,:,:] .== exits_cumulative[12,:,:])
+    end
+    # Only keep exits that result in re-entries
+    exits_cumulative = exits_cumulative .* (1 .- final_exit_no_reentry)
+    # Loop through the number of exits and sum up the years out that result in re-entry
+    max_exits = maximum(exits_cumulative)
+    exits_count_map = countmap(exits_cumulative)
+    years_out_before_reentry = 0
+    for i in 1:max_exits
+        # Test if that number of exits actually occurs ever
+        try
+            exits_count_map[i]
+        catch
+            # if not set it to 0
+            exits_count_map[i] = 0
+        end
+        years_out_before_reentry += exits_count_map[i]
+    end
+    # Get maximum exits for each firm-simulation, which is number of re-entries
+    reentries = sum(maximum(exits_cumulative, dims = 1))
 
-    distribution_SSE = (prop_two_entry_mean-prim.true_enter_twice_perc)^2+(prop_one_entry_mean-prim.true_enter_once_perc)^2+(prop_three_entry_mean-prim.true_enter_thrice_perc)^2+(prop_four_entry_mean-prim.true_enter_four_perc)^2+(prop_five_entry_mean-prim.true_enter_five_perc)^2
-
-
-    output = zeros(9)
+    output = zeros(6)
 
     output[1] = mean(annual_starter_rate)
     output[2] = mean(annual_stopper_rate)
     output[3] = mean(res.C_star ./ (res.Q[101:112,17].^(-1*prim.θ)))
     output[4] = std(log.(annual_firms_sales_domestic[:,:,20]))/mean(log.(annual_firms_sales_domestic[:,:,20]))
     output[5] = β_moment[1]
-    output[6] = prop_one_entry_mean
-    output[7] = prop_two_entry_mean
-    output[8] = prop_three_entry_mean
-    output[9] = prop_four_entry_mean
+    output[6] = years_out_before_reentry/reentries
+    # output[6] = prop_one_entry_mean
+    # output[7] = prop_two_entry_mean
+    # output[8] = prop_three_entry_mean
+    # output[9] = prop_four_entry_mean
 
-    error = abs(output[1]-prim.true_starter)+abs(output[2]-prim.true_stopper)+abs(output[6]-prim.true_enter_once_perc)+abs(output[7]-prim.true_enter_twice_perc)+abs(output[8]-prim.true_enter_thrice_perc)#+abs.(output[4]-prim.true_coef_var)+abs.(output[5]-prim.true_a_exp_growth)+abs.(output[3]-prim.true_ave_es_ratio)
+    error = abs(output[1]-prim.true_starter)+abs(output[2]-prim.true_stopper)+abs(output[6]-prim.true_avg_time_out_reentrant)#+abs(output[6]-prim.true_enter_once_perc)+abs(output[7]-prim.true_enter_twice_perc)+abs(output[8]-prim.true_enter_thrice_perc)#+abs.(output[4]-prim.true_coef_var)+abs.(output[5]-prim.true_a_exp_growth)+abs.(output[3]-prim.true_ave_es_ratio)
     
-    if res.FC_0 < 0 || res.FC_1 < 0 || res.α_d < 0 || res.β_d < 0 || res.β_sq_d < 0
+    if res.FC_0 < 0 || res.FC_1 < 0 || res.α_d < 0 || res.β_d < 0 || res.β_sq_d < 0 || res.δ < 0
         error = 100
     end
     
@@ -621,7 +667,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
         res.τ = 0/100
         Solve_model(prim, res)
         
-        save_object("/model/objects/normal_val_func_$filename.jld2", res.val_func)
+        save_object(".\\objects\\normal_val_func_$filename.jld2", res.val_func)
         save_object("./objects/normal_ex_func_$filename.jld2", res.ex_func)
         save_object("./objects/normal_n_func_$filename.jld2", res.n_func)
         save_object("./objects/normal_k_func_$filename.jld2", res.k_func)
@@ -639,10 +685,10 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
             tariff_n_func = copy(res.n_func)
             tariff_k_func = copy(res.k_func)
             
-            save_object("./objects/tariff_val_func_$filename.jld2", res.val_func)
-            save_object("./objects/tariff_ex_func_$filename.jld2", res.ex_func)
-            save_object("./objects/tariff_n_func_$filename.jld2", res.n_func)
-            save_object("./objects/tariff_k_func_$filename.jld2", res.k_func)
+            save_object("/objects/tariff_val_func_$filename.jld2", res.val_func)
+            save_object("/objects/tariff_ex_func_$filename.jld2", res.ex_func)
+            save_object("/objects/tariff_n_func_$filename.jld2", res.n_func)
+            save_object("/objects/tariff_k_func_$filename.jld2", res.k_func)
     
         else
             res.τ = 0/100
@@ -675,21 +721,14 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
         for i = 2:n_periods_experiment
 
             Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + rand(Normal(0, σ_q)))
-            if Q_experiment[i] > max(Q_grid)
-                Q_experiment[i] = max(Q_grid)
-            elseif Q_experiment[i] < min(Q_grid)
-                Q_experiment[i] = min(Q_grid)
+            if Q_experiment[i] > 3
+                Q_experiment[i] == 3
             end
             Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
 
             for j = 1:n_firms
                 
                 ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
-                if ϵ_experiment[i,j] > max(ϵ_grid)
-                    ϵ_experiment[i,j] = max(ϵ_grid)
-                elseif ϵ_experiment[i,j] < min(ϵ_grid)
-                    ϵ_experiment[i,j] = min(ϵ_grid)
-                end
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
 
                 if i < 107 && i > 105
