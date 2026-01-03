@@ -621,7 +621,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
         res.τ = 0/100
         Solve_model(prim, res)
         
-        save_object(".\\objects\\normal_val_func_$filename.jld2", res.val_func)
+        save_object("/model/objects/normal_val_func_$filename.jld2", res.val_func)
         save_object("./objects/normal_ex_func_$filename.jld2", res.ex_func)
         save_object("./objects/normal_n_func_$filename.jld2", res.n_func)
         save_object("./objects/normal_k_func_$filename.jld2", res.k_func)
