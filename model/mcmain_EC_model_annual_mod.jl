@@ -377,18 +377,18 @@ function MSM_func_first3(x)
 end
 
 function MSM_delta_func_first3(x)
-    prim, res = Initialize(3) #initialize primitive and results structs
+    prim, res = Initialize(1) #initialize primitive and results structs
 
     # res.α_d = x[1]
     # res.β_d = x[2]
     # res.β_sq_d = x[3]
-    res.α_d = x[1]
-    res.δ = x[2]
-    res.FC_0 = x[3]
-    res.FC_1 = x[4]
-    res.C_star = x[5]
-    #res.ρ_e = x[6]
-    #res.σ_e = x[7]
+    #res.α_d = x[1]
+    #res.δ = x[2]
+    res.FC_0 = x[1]
+    res.FC_1 = x[2]
+    res.C_star = x[3] #x[5]
+    res.ρ_e = x[4]
+    res.σ_e = x[5]
     if x[1] < 1
         res.prev_ex_grid = unique(decay_grid(x[1], x[2], x[3], 13-2, 2))
         res.n_prev_ex = length(res.prev_ex_grid)
@@ -625,7 +625,7 @@ function MSM_delta_func_first3(x)
     output[10] = prop_three_entry_mean
     output[11] = prop_four_entry_mean
 
-    error = abs(output[1]-prim.true_starter)/prim.true_starter+abs(output[2]-prim.true_stopper)/prim.true_stopper+abs(output[6]-prim.true_avg_time_out_reentrant)/prim.true_avg_time_out_reentrant+abs(output[3]-prim.true_ave_es_ratio)/prim.true_ave_es_ratio+abs(output[7]-prim.true_perc_reenter_immediate)/prim.true_perc_reenter_immediate#+abs.(output[4]-prim.true_coef_var)/prim.true_coef_var+abs.(output[5]-prim.true_a_exp_growth)/prim.true_a_exp_growth#+abs(output[6]-prim.true_enter_once_perc)+abs(output[7]-prim.true_enter_twice_perc)+abs(output[8]-prim.true_enter_thrice_perc)
+    error = abs(output[1]-prim.true_starter)/prim.true_starter+abs(output[2]-prim.true_stopper)/prim.true_stopper+abs(output[6]-prim.true_avg_time_out_reentrant)/prim.true_avg_time_out_reentrant+abs(output[7]-prim.true_perc_reenter_immediate)/prim.true_perc_reenter_immediate+abs(output[3]-prim.true_ave_es_ratio)/prim.true_ave_es_ratio+abs.(output[4]-prim.true_coef_var)/prim.true_coef_var+abs.(output[5]-prim.true_a_exp_growth)/prim.true_a_exp_growth#+abs(output[6]-prim.true_enter_once_perc)+abs(output[7]-prim.true_enter_twice_perc)+abs(output[8]-prim.true_enter_thrice_perc)
     
     if res.FC_0 < 0 || res.FC_1 < 0 || res.α_d < 0 || res.β_d < 0 || res.β_sq_d < 0 || res.δ < 0
         error = 100
