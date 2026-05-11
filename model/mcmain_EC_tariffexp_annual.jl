@@ -60,10 +60,10 @@ print(median(firms_sales_Base[105:112,:,:].-firms_sales_domestic_Base[105:112,:,
 print("\\")
 
 periods = range(-1,5,length=7)
-plot(periods, [Start_Base[4:10] Start_Delta[4:10]], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Starter Rate", xlabel="Period", dpi=300)
+plot(periods, [Start_Base[4:10] Start_Delta[4:10]], label=["δ=1" "Export Capital"], dpi=300)
 xticks!(periods)
-savefig("./model/images/starter_compare_t_annual.png")
-plot(periods, [Stop_Base[4:10] Stop_Delta[4:10]], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Starter Rate", xlabel="Period", dpi=300)
+savefig("./images/starter_compare_t_annual.png")
+plot(periods, [Stop_Base[4:10] Stop_Delta[4:10]], label=["δ=1" "Export Capital"], dpi=300)
 xticks!(periods)
 savefig("./model/images/stopper_compare_t_annual.png")
 
@@ -81,10 +81,10 @@ foreign_sales_all = vcat(foreign_sales_Base_scaled, foreign_sales_Delta_scaled)
 groups = repeat(["δ=1", "Export Capital"], inner = 8)
 periods_full = repeat(-1:3)#, outer=2)
 periods_double = repeat(-1:5, outer=2)
-plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
-savefig("./model/images/foreign_sales_compare_t_annual.png")
-# groupedbar(periods_double, foreign_sales_all, group = groups, label=["Export Capital" "δ=1"], dpi=300)
-# savefig("./images/foreign_sales_compare_bar_t_annual.png")
+plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], label=["δ=1" "Export Capital"], dpi=300)
+savefig("./images/foreign_sales_compare_t_annual.png")
+groupedbar(periods_double, foreign_sales_all, group = groups, label=["Export Capital" "δ=1"], dpi=300)
+savefig("./images/foreign_sales_compare_bar_t_annual.png")
 
 # production_Base_scaled = Production_Base ./ maximum(Production_Base)
 # production_Delta_scaled = Production_Delta ./ maximum(Production_Delta)
@@ -227,6 +227,21 @@ periods_double = repeat(-1:5, outer=2)
 plot(periods_full, [export_sales_Base_scaled export_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Scaled Export Revenues", xlabel="Period", dpi=300)
 savefig("./model/images/foreign_sales_compare_EE_annual.png")
 
+
+firms_export_sales_Base_sumAvg = mean(sum(firms_export_sales_Base[101:112,:,:], dims = 2), dims=3)
+export_sales_Base_scaled = firms_export_sales_Base_sumAvg[5:11] ./ firms_export_sales_Base_sumAvg[5]
+
+firms_export_sales_Delta_sumAvg = mean(sum(firms_export_sales_Delta[101:112,:,:], dims = 2), dims=3)
+export_sales_Delta_scaled = firms_export_sales_Delta_sumAvg[5:11] ./ firms_export_sales_Delta_sumAvg[5]
+
+export_sales_all = vcat(export_sales_Base_scaled, export_sales_Delta_scaled)
+groups = repeat(["δ=1", "Export Capital"], inner = 7)
+periods_full = repeat(-1:5)#, outer=2)
+periods_double = repeat(-1:5, outer=2)
+plot(periods_full, [export_sales_Base_scaled export_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Scaled Export Revenues", xlabel="Period", dpi=300)
+#savefig("./model/images/foreign_sales_compare_EE_annual.png")
+groupedbar(periods_double, export_sales_all, group = groups, label=["Sunk Cost" "+ Export Capital"], dpi=300)
+#savefig("./images/foreign_sales_compare_bar_EE_annual.png")
 ############################################################
 #              Variable Cost Uncertainty                   #
 ############################################################
