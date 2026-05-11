@@ -1,0 +1,78 @@
+{smcl}
+{* 31jan2006}{...}
+{hline}
+help for {hi:redprob}{right:Mark Stewart (31 Jan 2006)}
+{hline}
+
+{title:Maximum Likelihood Estimation of Random Effects Dynamic Probit Model}
+
+{p 4 12}{cmd:redprob} {it:depvar} {it:varlist} ({it:varsinit}) [{cmd:if} {it:exp}] [{cmd:in} {it:range}]  
+	[{cmd:,} {cmdab:i(}{it:varname}{cmd:)} {cmdab:t(}{it:varname}{cmd:)} 
+	{cmdab:q:uadrat(}{it:#}{cmd:)} {cmdab:f:rom(}{it:matname}{cmd:)} ]
+
+
+{title:Description}
+
+{p}{cmd:redprob} estimates a random effects dynamic probit model by Maximum Likelihood.
+
+
+{title:Options}
+
+{p 0 4}{cmd:i(}{it:varname}{cmd:)} specifies the variable name that contains the cross-section
+identifier.
+
+{p 0 4}{cmd:t(}{it:varname}{cmd:)} specifies the variable name that contains the time-series
+identifier.
+
+{p 0 4}{cmd:quadrat(}{it:#}{cmd:)} specifies the number of of Gaussian--Hermite 
+quadrature points for the evaluation of the required integral.
+
+{p 0 4}{cmd:from(}{it:matname}{cmd:)} specifies a matrix containing starting values for the
+parameters of the model. Use this option to check that a global maximum has been found.
+Also use to reduce required number of iterations or to restart a previously
+halted run. The default uses a pooled probit
+for periods except the first and a separate probit for the initial period reduced form.
+
+
+{title:Remarks}
+
+{p}For fuller details of the model and estimator and an illustration, see Stewart (2005). 
+For more information on the {cmd:redprob} command and sample output, see 
+Stewart (2006).
+
+{p}The lagged dependent variable must be constructed by the user and must appear 
+as the first variable in {it:varlist}. It is the user's responsibility to ensure 
+that both this variable and {it:depvar} are binary 0/1 variables.
+{it:varlist} should additionally contain the explanatory variables in the main equation.
+{it:varsinit} should contain the variables in the initial period reduced form.
+
+
+{title:Examples}
+
+{p 8 12 2}{inp:. sort id yr }
+
+{p 8 12 2}{inp:. redprob y Ly x1 x2 (x1 x2 z1 z2), i(id) t(yr) }
+
+{p 8 12 2}{inp:. redprob y Ly x1 x2 (x1 x2 z1 z2), i(id) t(yr) quadrat(12) }
+
+{p 8 12 2}{inp:. redprob y Ly x1 x2 (x1 x2 z1 z2), i(id) t(yr) from(startmat) }
+
+
+{title:Author}
+
+{p 4 4}Mark Stewart, Economics Department, University of Warwick, U.K.{break}
+<Mark.Stewart@warwick.ac.uk>
+
+
+{title:References}
+
+{p 4 8} Stewart, M.B. (2005), "The inter-related dynamics of unemployment 
+and low-wage employment", forthcoming {it:Journal of Applied Econometrics}.
+
+{p 4 8} Stewart, M.B. (2006), "-redprob- : A Stata program for the Heckman estimator 
+of the random effects dynamic probit model", mimeo, University of Warwick.
+
+ 
+{title:Also see}
+
+{p 0 19}On-line:  help for {help est}, {help ml}.{p_end}
