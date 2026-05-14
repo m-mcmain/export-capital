@@ -16,7 +16,7 @@
     nQ::Int64 = 5 #number of capital grid points
     Q_grid::Array{Float64,1} = collect(range(Q_min, length = nQ, stop = Q_max))  # RER grid
     
-    ϵ_min::Float64 = 0.6 # Productivity Lower Bound
+    ϵ_min::Float64 = 0.3 # Productivity Lower Bound
     ϵ_max::Float64 = 1.7 # Productivity Upper Bound
     nϵ::Int64 = 101 #Number of Productivity states 
     ϵ_grid::Array{Float64,1} = collect(range(ϵ_min, length = nϵ, stop = ϵ_max)) # Productivity Grid
@@ -385,21 +385,47 @@ function MSM_func_first3(x)
 end
 
 function MSM_delta_func_first3(x)
-    model = 2
+    print(x)
+    print("\n")
+    model = 3
     prim, res = Initialize(model) #initialize primitive and results structs
+
+    if x[6] > 1
+        x[6] = 1
+    end
+
+    if x[7] < 0
+        x[7] = 0
+    end
 
     # If it's the stochastic FC, allow those to change
     if model == 2
-        res.σ_FC_0 = x[1]
-        res.σ_FC_1 = x[2]
+        if x[1] < 0
+            res.σ_FC_0 = 0
+        else
+            res.σ_FC_0 = x[1]*x[3]
+        end
+        if x[2] < 0
+            res.σ_FC_1 = 0
+        else
+            res.σ_FC_1 = x[2]*x[4]
+        end
     # If it's Export Capital, allow those to change
     else
         res.α_d = x[1]
         res.δ = x[2]
     end
 
+    if x[3] < 0
+        x[3] = 0
+    end
     res.FC_0 = x[3]
+
+    if x[4] < 0
+        x[4] = 0
+    end
     res.FC_1 = x[4]
+
     res.C_star = x[5]
     res.ρ_e = x[6]
     res.σ_e = x[7]
@@ -466,6 +492,10 @@ function MSM_delta_func_first3(x)
             end
         end
     end
+
+    ########################################
+    # Calculate starter and stopper rates  #
+    ########################################
     annual_starter_rate = zeros(11, prim.n_sims)
     annual_stopper_rate = zeros(11, prim.n_sims)
     # Add 1 and 0 to export decisions once to make sure neither are ever 0
@@ -485,29 +515,48 @@ function MSM_delta_func_first3(x)
         end
     end
 
-    sales_today = mean(annual_firms_sales[2,:,:], dims=2)
-    sales_yesterday = mean(annual_firms_sales[1,:,:], dims=2)
-    year = []
-    firm_num = []
-    for i = 3:12
-        sales_today = [sales_today; mean(annual_firms_sales[i,:,:],dims=2)]
-        sales_yesterday = [sales_yesterday; mean(annual_firms_sales[i-1,:,:],dims=2)]
+    #########################################################################
+    # Find the coefficient of variation of log domestic sales for every sim #
+    #########################################################################
+    coef_variation = zeros(prim.n_sims)
+    for i = 1:prim.n_sims
+        coef_variation[i] = std(log.(annual_firms_sales_domestic[:,:,i]))/mean(log.(annual_firms_sales_domestic[:,:,i]))
     end
 
-    for i = 2:12
-        for j = 1:prim.n_firms
-            year = [year; string("Y",i)]
-            firm_num = [firm_num; string("F",j)]
+    ##############################################
+    # Find the coefficient on log domestic sales #
+    ##############################################
+    β_sales = zeros(1)
+    for s = 1:1
+        # sales_today = mean(annual_firms_sales[2,:,:], dims=2)
+        # sales_yesterday = mean(annual_firms_sales[1,:,:], dims=2)
+        sales_today = annual_firms_sales_domestic[2,:,s]
+        sales_yesterday = annual_firms_sales_domestic[1,:,s]
+        year = []
+        firm_num = []
+        for i = 3:12
+            # sales_today = [sales_today; mean(annual_firms_sales[i,:,:],dims=2)]
+            # sales_yesterday = [sales_yesterday; mean(annual_firms_sales[i-1,:,:],dims=2)]
+            sales_today = [sales_today; annual_firms_sales_domestic[i,:,s]]
+            sales_yesterday = [sales_yesterday; annual_firms_sales_domestic[i-1,:,s]]
         end
+
+        for i = 2:12
+            for j = 1:prim.n_firms
+                year = [year; string("Y",i)]
+                firm_num = [firm_num; string("F",j)]
+            end
+        end
+
+        sales_today_vec = copyto!(Vector{Float64}(undef,length(sales_today)),sales_today)
+        sales_yesterday_vec = copyto!(Vector{Float64}(undef,length(sales_yesterday)),sales_yesterday)
+
+        reg_DF = DataFrame(s_today = log.(sales_today_vec), s_yesterday = log.(sales_yesterday_vec), y = year, f = firm_num)
+        reg_results = reg(reg_DF, @formula(s_today ~ s_yesterday + fe(y) + fe(f)))
+
+        β_moment = coef(reg_results)
+        β_sales[s] = β_moment[1]
     end
-
-    sales_today_vec = copyto!(Vector{Float64}(undef,length(sales_today)),sales_today)
-    sales_yesterday_vec = copyto!(Vector{Float64}(undef,length(sales_yesterday)),sales_yesterday)
-
-    reg_DF = DataFrame(s_today = log.(sales_today_vec), s_yesterday = log.(sales_yesterday_vec), y = year, f = firm_num)
-    reg_results = reg(reg_DF, @formula(s_today ~ s_yesterday + fe(y) + fe(f)))
-
-    β_moment = coef(reg_results)
 
     for k = 1:prim.n_sims
         n_no_entry = 0
@@ -647,9 +696,10 @@ function MSM_delta_func_first3(x)
 
     output[1] = mean(annual_starter_rate)
     output[2] = mean(annual_stopper_rate)
-    output[3] = mean(res.C_star ./ (res.Q[101:112,10].^(-1*prim.θ)))
-    output[4] = std(log.(annual_firms_sales_domestic[:,:,10]))/mean(log.(annual_firms_sales_domestic[:,:,10]))
-    output[5] = β_moment[1]
+    output[3] = sum(annual_firms_sales_foreign./annual_firms_sales)/sum(annual_firms_export_decisions)
+    output[4] = mean(coef_variation)
+    # output[5] = β_moment[1]
+    output[5] = mean(β_sales)
     output[6] = years_out_before_reentry/reentries
     output[7] = immediate_reentries/exits_all_noEndYears
     output[8] = prop_one_entry_mean
@@ -657,7 +707,7 @@ function MSM_delta_func_first3(x)
     output[10] = prop_three_entry_mean
     output[11] = prop_four_entry_mean
 
-    error = abs(output[1]-prim.true_starter)/prim.true_starter+abs(output[2]-prim.true_stopper)/prim.true_stopper+abs(output[3]-prim.true_ave_es_ratio)/prim.true_ave_es_ratio+abs.(output[4]-prim.true_coef_var)/prim.true_coef_var+abs.(output[5]-prim.true_a_exp_growth)/prim.true_a_exp_growth+abs(output[6]-prim.true_avg_time_out_reentrant)/prim.true_avg_time_out_reentrant+abs(output[7]-prim.true_perc_reenter_immediate)/prim.true_perc_reenter_immediate#+abs(output[6]-prim.true_enter_once_perc)+abs(output[7]-prim.true_enter_twice_perc)+abs(output[8]-prim.true_enter_thrice_perc)
+    error = abs(output[1]-prim.true_starter)/prim.true_starter+abs(output[2]-prim.true_stopper)/prim.true_stopper+abs(output[3]-prim.true_ave_es_ratio)/prim.true_ave_es_ratio+abs.(output[4]-prim.true_coef_var)/prim.true_coef_var+abs.(output[5]-prim.true_a_exp_growth)/prim.true_a_exp_growth+abs(output[6]-prim.true_avg_time_out_reentrant)/prim.true_avg_time_out_reentrant+abs(output[7]-prim.true_perc_reenter_immediate)/prim.true_perc_reenter_immediate
     
     if res.FC_0 < 0 || res.FC_1 < 0 || res.α_d < 0 || res.β_d < 0 || res.β_sq_d < 0 || res.δ < 0
         error = 100
@@ -744,15 +794,17 @@ function export_revenue(prim::Primitives, res::Results, x)
     # x[1] is labor choice, x[2] is capital, x[3] is export decision, x[4] is productivity, and x[5] is Q
     @unpack θ, C, r, w, α_n = prim
     @unpack τ, C_star, FC_0, FC_1 = res
-    export_revenue = (x[3]*(x[5]*(1-res.τ))^θ*C_star/C)^(1/θ)*C^(1/θ)*x[4]*x[1]^(α_n*(θ-1)/θ)*x[2]^((1-α_n)*(θ-1)/θ)
+    # export_revenue = ((1+x[3]*(x[5]*(1-res.τ))^θ*C_star/C)^(1/θ)-1)*C^(1/θ)*x[4]*x[1]^(α_n*(θ-1)/θ)*x[2]^((1-α_n)*(θ-1)/θ)
+    export_revenue = x[3]*x[5]*C_star^(1/θ)*(1/(1+x[5]^(-1*θ)*C/C_star)*x[4]^(θ/(θ-1))*x[1]^α_n*x[2]^(1-α_n))^((θ-1)/θ)
     return export_revenue
 end
 
 function domestic_revenue(prim::Primitives, res::Results, x)
-    # x[1] is labor choice, x[2] is capital, x[3] is productivity, and x[4] is Q
+    # x[1] is labor choice, x[2] is capital, x[3] is export decision, x[4] is productivity, and x[5] is Q
     @unpack θ, C, r, w, α_n = prim
     @unpack τ, C_star, FC_0, FC_1 = res
-    domestic_revenue = (1)^(1/θ)*C^(1/θ)*x[3]*x[1]^(α_n*(θ-1)/θ)*x[2]^((1-α_n)*(θ-1)/θ)
+    # domestic_revenue = ((1)^(1/θ)-1)*C^(1/θ)*x[4]*x[1]^(α_n*(θ-1)/θ)*x[2]^((1-α_n)*(θ-1)/θ)
+    domestic_revenue = C^(1/θ)*((1-x[3]*1/(1+x[5]^(-1*θ)*C/C_star))*x[4]^(θ/(θ-1))*x[1]^α_n*x[2]^(1-α_n))^((θ-1)/θ)
     return domestic_revenue
 end
 
@@ -760,7 +812,8 @@ function total_revenue(prim::Primitives, res::Results, x)
     # x[1] is labor choice, x[2] is capital, x[3] is export decision, x[4] is productivity, and x[5] is Q
     @unpack θ, C, r, w, α_n = prim
     @unpack τ, C_star, FC_0, FC_1 = res
-    total_revenue = (1+x[3]*(x[5]*(1-res.τ))^θ*C_star/C)^(1/θ)*C^(1/θ)*x[4]*x[1]^(α_n*(θ-1)/θ)*x[2]^((1-α_n)*(θ-1)/θ)
+    # total_revenue = (1+x[3]*(x[5]*(1-res.τ))^θ*C_star/C)^(1/θ)*C^(1/θ)*x[4]*x[1]^(α_n*(θ-1)/θ)*x[2]^((1-α_n)*(θ-1)/θ)
+    total_revenue = domestic_revenue(prim, res, x) + export_revenue(prim, res, x)
     return total_revenue
 end
 
@@ -1213,12 +1266,12 @@ function data_sim_delta_nsims(prim::Primitives, res::Results)
                 ϵ_index = findmin(abs.(ϵ[i,j,k] .- ϵ_grid))[2]
 
                 # Draw your stochastic FC_0 and FC_1
-                firm_FC_0 = FC_0 + rand(Normal(0,σ_FC_0))
-                firm_FC_1 = FC_1 + rand(Normal(0,σ_FC_1))
+                firm_FC_0 = max(FC_0 + rand(Normal(0,σ_FC_0)),0)
+                firm_FC_1 = max(FC_1 + rand(Normal(0,σ_FC_1)),0)
 
                 if firm_FC_0 != FC_0 || firm_FC_1 != FC_1
-                    profit_export = profit_func(prim, res, [n_func[Q_index, ϵ_index, n_prev_ex] k_func[Q_index, ϵ_index, n_prev_ex] 1 ϵ_grid[ϵ_index] firms_export_capital[i-1,j,k] Q_grid[Q_index] firm_FC_0 firm_FC_1])
-                    profit_no_export = profit_func(prim, res, [n_func[Q_index, ϵ_index, 1] k_func[Q_index, ϵ_index, 1] 0 ϵ_grid[ϵ_index] firms_export_capital[i-1,j,k] Q_grid[Q_index] firm_FC_0 firm_FC_1])
+                    profit_export = profit_func(prim, res, [n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])] k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])] 1 ϵ_grid[ϵ_index] firms_export_capital[i-1,j,k] Q_grid[Q_index] firm_FC_0 firm_FC_1])
+                    profit_no_export = profit_func(prim, res, [n_func[Q_index, ϵ_index, floor(Int,max(firms_export_capital[i-1,j,k]-1,1))] k_func[Q_index, ϵ_index, floor(Int,max(firms_export_capital[i-1,j,k]-1,1))] 0 ϵ_grid[ϵ_index] firms_export_capital[i-1,j,k] Q_grid[Q_index] firm_FC_0 firm_FC_1])
                     if profit_export >= profit_no_export
                         firms_export_decisions[i,j,k] = 1
                     else
@@ -1236,7 +1289,7 @@ function data_sim_delta_nsims(prim::Primitives, res::Results)
                 
                 firms_labor_decisions[i,j,k] = n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                 firms_capital_decisions[i,j,k] = k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] ϵ[i,j,k] Q[i,k]])
+                firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ[i,j,k] Q[i,k]])
                 firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ[i,j,k] Q[i,k]])
                 firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ[i,j,k] Q[i,k]])
             end
