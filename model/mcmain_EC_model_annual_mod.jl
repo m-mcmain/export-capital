@@ -35,7 +35,7 @@
     true_enter_four_perc::Float64 = 0.022 # True firms who enter four times
     true_enter_five_perc::Float64 = 0.0018 # True firms who enter five times
     true_coef_var::Float64 = 0.09592415 # True coefficient of variation
-    true_a_exp_growth::Float64 = 0.45127586 # True regression coefficient on log sales growth
+    true_a_exp_growth::Float64 = 0.40958202 # True regression coefficient on log sales growth
     true_avg_time_out_reentrant::Float64 = 1.9461679 # True average time out of the export market for re-entrants
     true_perc_reenter_immediate::Float64 = 0.4069149 # True percent of firms that reenter after 1 year out
 
@@ -390,31 +390,16 @@ function MSM_delta_func_first3(x)
     model = 3
     prim, res = Initialize(model) #initialize primitive and results structs
 
-    if x[6] > 1
-        x[6] = 1
-    end
+    # if x[6] > 1
+    #     x[6] = 1
+    # end
 
-    if x[7] < 0
-        x[7] = 0
-    end
+    # if x[7] < 0
+    #     x[7] = 0
+    # end
 
-    # If it's the stochastic FC, allow those to change
-    if model == 2
-        if x[1] < 0
-            res.σ_FC_0 = 0
-        else
-            res.σ_FC_0 = x[1]*x[3]
-        end
-        if x[2] < 0
-            res.σ_FC_1 = 0
-        else
-            res.σ_FC_1 = x[2]*x[4]
-        end
-    # If it's Export Capital, allow those to change
-    else
-        res.α_d = x[1]
-        res.δ = x[2]
-    end
+    res.α_d = x[1]
+    res.δ = x[2]
 
     if x[3] < 0
         x[3] = 0
@@ -426,9 +411,16 @@ function MSM_delta_func_first3(x)
     end
     res.FC_1 = x[4]
 
-    res.C_star = x[5]
-    res.ρ_e = x[6]
-    res.σ_e = x[7]
+    # res.C_star = x[5]
+    # res.ρ_e = x[6]
+    # res.σ_e = x[7]
+
+    res.C_star = 0.16077438308738798 
+    res.ρ_e = 0.5955502054134475 
+    res.σ_e = 0.05354262688686567
+
+    tauchen_res_e = tauchen(prim.nϵ, res.ρ_e, res.σ_e)
+    res.tauchen_trans_e = tauchen_res_e.p
 
     if res.δ < 1
         res.prev_ex_grid = unique(decay_grid(x[1], x[2], x[3], 13-2, 2))
@@ -1237,8 +1229,8 @@ function export_subsidy_experiment(prim::Primitives, res::Results)
 end
 
 function data_sim_delta_nsims(prim::Primitives, res::Results)
-    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, σ_FC_0, σ_FC_1, C_star = res #unpack value function
-    @unpack Q_grid, ϵ_grid, n_periods, n_firms, ρ_q, σ_q, θ, α_n, n_sims = prim #unpack primitives
+    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, σ_FC_0, σ_FC_1, C_star, tauchen_trans_Q, tauchen_trans_e, prev_ex_grid = res #unpack value function
+    @unpack C, w, r, nϵ, nQ, R, Q_grid, ϵ_grid, n_periods, n_firms, ρ_q, σ_q, θ, α_n, n_sims = prim #unpack primitives
 
     firms_export_capital = ones(n_periods, n_firms, n_sims)
     firms_export_decisions = zeros(n_periods, n_firms, n_sims)
@@ -1264,34 +1256,20 @@ function data_sim_delta_nsims(prim::Primitives, res::Results)
                 
                 ϵ[i,j,k] = exp(ρ_e*log(ϵ[i-1,j,k]) + rand(Normal(0,σ_e)))
                 ϵ_index = findmin(abs.(ϵ[i,j,k] .- ϵ_grid))[2]
-
-                # Draw your stochastic FC_0 and FC_1
-                firm_FC_0 = max(FC_0 + rand(Normal(0,σ_FC_0)),0)
-                firm_FC_1 = max(FC_1 + rand(Normal(0,σ_FC_1)),0)
-
-                if firm_FC_0 != FC_0 || firm_FC_1 != FC_1
-                    profit_export = profit_func(prim, res, [n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])] k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])] 1 ϵ_grid[ϵ_index] firms_export_capital[i-1,j,k] Q_grid[Q_index] firm_FC_0 firm_FC_1])
-                    profit_no_export = profit_func(prim, res, [n_func[Q_index, ϵ_index, floor(Int,max(firms_export_capital[i-1,j,k]-1,1))] k_func[Q_index, ϵ_index, floor(Int,max(firms_export_capital[i-1,j,k]-1,1))] 0 ϵ_grid[ϵ_index] firms_export_capital[i-1,j,k] Q_grid[Q_index] firm_FC_0 firm_FC_1])
-                    if profit_export >= profit_no_export
-                        firms_export_decisions[i,j,k] = 1
-                    else
-                        firms_export_decisions[i,j,k] = 0
-                    end
-                else
-                    firms_export_decisions[i,j,k] = ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                end
                 
+                firms_export_decisions[i,j,k] = ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+
                 if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
                     firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
                 elseif firms_export_decisions[i,j,k] == 1
                     firms_export_capital[i,j,k] = n_prev_ex
                 end
-                
+ 
                 firms_labor_decisions[i,j,k] = n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                firms_capital_decisions[i,j,k] = k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ[i,j,k] Q[i,k]])
-                firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ[i,j,k] Q[i,k]])
-                firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ[i,j,k] Q[i,k]])
+                firms_capital_decisions[i,j,k] = k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]               
+                firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
             end
         end
     end
