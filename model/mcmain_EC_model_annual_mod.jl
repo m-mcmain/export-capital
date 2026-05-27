@@ -106,11 +106,11 @@ function Initialize(base::Int64)
     Q_experiment = Array{Float64}(ones(prim.n_periods_experiment)) # initial Q
     τ = 0.0 # initial τ (no tariffs)
     if base == 1
-        C_star = 0.15437472662956264
-        ρ_e =  0.6878931557489516
-        σ_e = 0.1821507667406799
-        FC_0 = 2.28655364976607
-        FC_1 = 0.5038568304392312
+        C_star = 0.1758365634891379
+        ρ_e =  0.5578531719104737
+        σ_e = 0.055335532089231455
+        FC_0 = 2.0640209569131414
+        FC_1 = 0.5180293379693438
         δ = 1
         α_d = 1.0 # Export Capital Decay Intercept Guess 
         β_d = 0.0 # Export Capital Decay coefficient Guess       
@@ -130,14 +130,14 @@ function Initialize(base::Int64)
         σ_FC_0 = 0.02 # No random variation in FC_0
         σ_FC_1 = 0.02 # No random variation in FC_1
     elseif base == 3
-        C_star = 0.15393209180615994
-        ρ_e = 0.6862088736981513
-        σ_e = 0.1831055192502665
-        FC_0 = 4.8684113046951145 # Fixed Cost based on Last Export
-        FC_1 = 0.40000926856236735 # Fixed Cost of reentry
+        C_star = 0.16351531808176953
+        ρ_e =  0.5715628227690573
+        σ_e = 0.05442482155723265
+        FC_0 = 3.1658434381458584 # Fixed Cost based on Last Export
+        FC_1 = 0.5253599034148633 # Fixed Cost of reentry
         δ = 0.03481335347534838 # Export Knowledge Deprication guess 
-        α_d = 0.01680126916163934 # Export Capital Decay Intercept Guess 
-        β_d = 0.08333921471830998 # Export Capital Decay coefficient Guess       
+        α_d = 0.034161348311975794 # Export Capital Decay Intercept Guess 
+        β_d = 0.002558353139067274 # Export Capital Decay coefficient Guess       
         β_sq_d = 0.0 # Export Capital Decay squared coefficient Guess    
         σ_FC_0 = 0 # No random variation in FC_0
         σ_FC_1 = 0 # No random variation in FC_1   
@@ -387,48 +387,65 @@ end
 function MSM_delta_func_first3(x)
     print(x)
     print("\n")
-    model = 3
+    model = 1
     prim, res = Initialize(model) #initialize primitive and results structs
 
-    # if x[6] > 1
-    #     x[6] = 1
-    # end
+    if model == 3
+        res.α_d = x[1]
+        res.δ = x[2]
 
-    # if x[7] < 0
-    #     x[7] = 0
-    # end
+        if x[6] > 1
+            x[6] = 1
+        end
 
-    res.α_d = x[1]
-    res.δ = x[2]
+        if x[7] < 0
+            x[7] = 0
+        end
 
-    if x[3] < 0
-        x[3] = 0
+        res.C_star = x[5]
+        res.ρ_e = x[6]
+        res.σ_e = x[7]
+
+    else
+        # if x[1] > 1
+        #     x[1] = 1
+        # end
+
+        # if x[2] < 0
+        #     x[2] = 0
+        # end
+
+        res.C_star = x[3]
+        # res.ρ_e = x[1]
+        # res.σ_e = x[2]
     end
-    res.FC_0 = x[3]
 
-    if x[4] < 0
-        x[4] = 0
+    # FC_0 is x[3] no matter what
+    if x[1] < 0
+        x[1] = 0
     end
-    res.FC_1 = x[4]
+    res.FC_0 = x[1]
 
-    # res.C_star = x[5]
-    # res.ρ_e = x[6]
-    # res.σ_e = x[7]
+    # FC_1 is x[4] no matter what
+    if x[2] < 0
+        x[2] = 0
+    end
+    res.FC_1 = x[2]
 
-    res.C_star = 0.16077438308738798 
-    res.ρ_e = 0.5955502054134475 
-    res.σ_e = 0.05354262688686567
-
+    # Update the ϵ process
     tauchen_res_e = tauchen(prim.nϵ, res.ρ_e, res.σ_e)
     res.tauchen_trans_e = tauchen_res_e.p
 
+    # Update the export decay grid
     if res.δ < 1
-        res.prev_ex_grid = unique(decay_grid(x[1], x[2], x[3], 13-2, 2))
+        res.prev_ex_grid = unique(decay_grid(x[1], x[2], x[3], 24-2, 2))
         res.n_prev_ex = length(res.prev_ex_grid)
     else
         res.prev_ex_grid = [0, 1]
         res.n_prev_ex = length(res.prev_ex_grid)
     end
+
+    # Initialize functions
     res.n_func = Array{Float64}(zeros(prim.nQ, prim.nϵ, res.n_prev_ex)) # initial worker function guess
     res.k_func = Array{Float64}(zeros(prim.nQ, prim.nϵ, res.n_prev_ex)) # initial capital function guess
     res.ex_func = Array{Float64}(zeros(prim.nQ, prim.nϵ, res.n_prev_ex)) # initial export function guess
@@ -699,7 +716,11 @@ function MSM_delta_func_first3(x)
     output[10] = prop_three_entry_mean
     output[11] = prop_four_entry_mean
 
-    error = abs(output[1]-prim.true_starter)/prim.true_starter+abs(output[2]-prim.true_stopper)/prim.true_stopper+abs(output[3]-prim.true_ave_es_ratio)/prim.true_ave_es_ratio+abs.(output[4]-prim.true_coef_var)/prim.true_coef_var+abs.(output[5]-prim.true_a_exp_growth)/prim.true_a_exp_growth+abs(output[6]-prim.true_avg_time_out_reentrant)/prim.true_avg_time_out_reentrant+abs(output[7]-prim.true_perc_reenter_immediate)/prim.true_perc_reenter_immediate
+    if model == 1
+        error = abs(output[1]-prim.true_starter)/prim.true_starter+abs(output[2]-prim.true_stopper)/prim.true_stopper + abs(output[3]-prim.true_ave_es_ratio)/prim.true_ave_es_ratio+abs.(output[4]-prim.true_coef_var)/prim.true_coef_var+abs.(output[5]-prim.true_a_exp_growth)/prim.true_a_exp_growth 
+    else
+        error = abs(output[1]-prim.true_starter)/prim.true_starter+abs(output[2]-prim.true_stopper)/prim.true_stopper+abs(output[6]-prim.true_avg_time_out_reentrant)/prim.true_avg_time_out_reentrant+abs(output[7]-prim.true_perc_reenter_immediate)/prim.true_perc_reenter_immediate + abs(output[3]-prim.true_ave_es_ratio)/prim.true_ave_es_ratio+abs.(output[4]-prim.true_coef_var)/prim.true_coef_var+abs.(output[5]-prim.true_a_exp_growth)/prim.true_a_exp_growth 
+    end
     
     if res.FC_0 < 0 || res.FC_1 < 0 || res.α_d < 0 || res.β_d < 0 || res.β_sq_d < 0 || res.δ < 0
         error = 100

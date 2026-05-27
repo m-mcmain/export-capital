@@ -39,26 +39,26 @@ include("mcmain_EC_model_annual_mod.jl")
 ##############################################################
 #####                     Optim Delta                     ####
 ##############################################################
-rand_results = zeros(10, 6)
+rand_results = zeros(10, 4)
 for i = 2:10
+    # Make sure these line up with model file
+    model = 1
+    model_file = "canonical_random.txt"
+    
     runif = rand(Xoshiro(i), 5)
-    prim, res = Initialize(3)
     println("Beginning of Iteration ", i, ":")
-    # random_x0 = [runif[4] runif[5]*0.5 runif[1]*20+5 runif[2]*2 0.23 0.71 0.18]
-    # random_x0 = [0.05 0.05 2.28655364976607 0.5038568304392312 0.15437472662956264 0.6878931557489516 0.1821507667406799]
-    # random_x0 = [0.001 0.2*0.5038568304392312 2.28655364976607 0.5038568304392312] # 0.154067618167206 0.5385 0.05714972430845821]
     if i == 1
-        random_x0 = [0.05903572698230247 0.02376585254741416 2.4327917664262735 0.5101173355824407] #0.154067618167206 0.5385 0.05714972430845821] 
+        random_x0 = [0.5715628227690573 0.05442482155723265 2.0 0.5253599034148633 0.16351531808176953] 
     else
-        random_x0 = [runif[1]*0.5 runif[2]*0.5 runif[3]*10+1 runif[4]] # 0.154067618167206 0.5385 0.05714972430845821]
+        random_x0 = [runif[3]*5 runif[4] runif[5]*0.25]
     end
     opt_res_canon_random = optimize(MSM_delta_func_first3, random_x0)
     minimizers_canon_random = transpose(Optim.minimizer(opt_res_canon_random))
     println(minimizers_canon_random)
-    open("export_capital.txt","a") do file
-        println(file, minimizers_canon_random)
+    rand_results[i,:] = vcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
+    open(model_file,"a") do file
+        println(file, rand_results[i,:])
     end 
-    rand_results[i,:] = hcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
 end
 print(rand_results)
 
