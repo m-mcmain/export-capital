@@ -106,29 +106,29 @@ function Initialize(base::Int64)
     Q_experiment = Array{Float64}(ones(prim.n_periods_experiment)) # initial Q
     τ = 0.0 # initial τ (no tariffs)
     if base == 1
-        C_star = 0.1758365634891379
-        ρ_e =  0.5578531719104737
-        σ_e = 0.055335532089231455
-        FC_0 = 2.0640209569131414
-        FC_1 = 0.5180293379693438
+        C_star = 0.14822662063483324
+        ρ_e =  0.5704358764309491
+        σ_e = 0.05389818114125237
+        FC_0 = 1.6741901913074753
+        FC_1 = 0.4352053721156689
         δ = 1
         α_d = 1.0 # Export Capital Decay Intercept Guess 
         β_d = 0.0 # Export Capital Decay coefficient Guess       
         β_sq_d = 0.0 # Export Capital Decay squared coefficient Guess  
         σ_FC_0 = 0 # No random variation in FC_0
         σ_FC_1 = 0 # No random variation in FC_1
-    elseif base == 2 # Add stochastic fixed export costs to Sunk Cost Model 
-        C_star = 0.15437472662956264
-        ρ_e =  0.6878931557489516
-        σ_e = 0.1821507667406799
-        FC_0 = 2.28655364976607
-        FC_1 = 0.5038568304392312
+    elseif base == 2 # Perfectly Identified Sunk Cost Model 
+        C_star = 0.13017264011231047
+        ρ_e =  0.9999843253276733
+        σ_e = 0.008942722798834544
+        FC_0 = 0.08176178216576599
+        FC_1 = 0.8307762231237128
         δ = 1
         α_d = 1.0 # Export Capital Decay Intercept Guess 
         β_d = 0.0 # Export Capital Decay coefficient Guess       
         β_sq_d = 0.0 # Export Capital Decay squared coefficient Guess  
-        σ_FC_0 = 0.02 # No random variation in FC_0
-        σ_FC_1 = 0.02 # No random variation in FC_1
+        σ_FC_0 = 0 # No random variation in FC_0
+        σ_FC_1 = 0 # No random variation in FC_1
     elseif base == 3
         C_star = 0.16351531808176953
         ρ_e =  0.5715628227690573
@@ -147,7 +147,7 @@ function Initialize(base::Int64)
         n_prev_ex = 2 # Number of previous export states
         prev_ex_grid = [0, 1]
     else
-        prev_ex_grid = unique(decay_grid(α_d, β_d, β_sq_d, 13-2, 2))
+        prev_ex_grid = unique(decay_grid(α_d, β_d, β_sq_d, 22-2, 2))
         n_prev_ex = length(prev_ex_grid)
     end
     n_func = Array{Float64}(zeros(prim.nQ, prim.nϵ, n_prev_ex)) # initial worker function guess
@@ -387,19 +387,19 @@ end
 function MSM_delta_func_first3(x)
     print(x)
     print("\n")
-    model = 1
+    model = 2
     prim, res = Initialize(model) #initialize primitive and results structs
 
     if model == 3
         res.α_d = x[1]
         res.δ = x[2]
 
-        if x[6] > 1
-            x[6] = 1
+        if x[6] >= 1
+            x[6] = 0.99
         end
 
         if x[7] < 0
-            x[7] = 0
+            x[7] = 0.01
         end
 
         res.C_star = x[5]
@@ -407,30 +407,31 @@ function MSM_delta_func_first3(x)
         res.σ_e = x[7]
 
     else
-        # if x[1] > 1
-        #     x[1] = 1
-        # end
+        if x[1] >= 1
+            x[1] = 0.99
+        end
 
-        # if x[2] < 0
-        #     x[2] = 0
-        # end
+        if x[2] < 0
+            x[2] = 0.01
+        end
 
-        res.C_star = x[3]
-        # res.ρ_e = x[1]
-        # res.σ_e = x[2]
+        res.C_star = x[5]
+        res.ρ_e = x[1]
+        res.σ_e = x[2]
+        print([res.ρ_e res.σ_e])
     end
 
     # FC_0 is x[3] no matter what
-    if x[1] < 0
-        x[1] = 0
+    if x[3] < 0
+        x[3] = 0
     end
-    res.FC_0 = x[1]
+    res.FC_0 = x[3]
 
     # FC_1 is x[4] no matter what
-    if x[2] < 0
-        x[2] = 0
+    if x[4] < 0
+        x[4] = 0
     end
-    res.FC_1 = x[2]
+    res.FC_1 = x[4]
 
     # Update the ϵ process
     tauchen_res_e = tauchen(prim.nϵ, res.ρ_e, res.σ_e)
