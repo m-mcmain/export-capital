@@ -61,17 +61,18 @@ print(rand_results)
 ##############################################################
 # Initialize params and data
 prim, res = Initialize(3)
-panel = zeros(prim.n_sims*prim.n_firms*12, 6)
+panel = zeros(prim.n_sims*prim.n_firms*12, 7)
 firm_export_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_labor_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_capital_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_domestic = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_all = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firms_export_sales = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
+productivities = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 # Solve the model with the parameters
 Solve_model(prim,res)
 # Simulate the data
-firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales = data_sim_delta_nsims(prim, res)
+firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims_prod(prim, res)
 row = 1
 for k = 1:prim.n_sims
     for j = 1:prim.n_firms
@@ -83,25 +84,27 @@ for k = 1:prim.n_sims
             panel[row,4] = firm_capital_choices[100+i,j,k]
             panel[row,5] = firm_sales_all[100+i,j,k]
             panel[row,6] = firms_export_sales[100+i,j,k]
+            panel[row,7] = productivities[100+i,j,k]
             row += 1
         end
     end
 end
-writedlm("./data/Panel_Sim_delta_test.csv", panel, ",")
+writedlm("./data/Panel_Sim_delta.csv", panel, ",")
 ##############################################################
 #####         Output Simulated Sunk Cost Panel            ####
 ##############################################################
 prim, res = Initialize(1)
-panel = zeros(prim.n_sims*prim.n_firms*12, 6)
+panel = zeros(prim.n_sims*prim.n_firms*12, 7)
 firm_export_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_labor_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_capital_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_domestic = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_all = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
+productivities = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 # Solve the model with the parameters
 Solve_model(prim,res)
 # Simulate the data
-firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales = data_sim_delta_nsims(prim, res)
+firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims_prod(prim, res)
 row = 1
 for k = 1:prim.n_sims
     for j = 1:prim.n_firms
@@ -112,6 +115,8 @@ for k = 1:prim.n_sims
             panel[row,3] = firm_export_choices[100+i,j,k]
             panel[row,4] = firm_capital_choices[100+i,j,k]
             panel[row,5] = firm_sales_all[100+i,j,k]
+            panel[row,6] = firms_export_sales[100+i,j,k]
+            panel[row,7] = productivities[100+i,j,k]
             row += 1
         end
     end
