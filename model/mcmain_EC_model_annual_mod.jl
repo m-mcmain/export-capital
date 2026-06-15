@@ -16,15 +16,15 @@
     nQ::Int64 = 5 #number of capital grid points
     Q_grid::Array{Float64,1} = collect(range(Q_min, length = nQ, stop = Q_max))  # RER grid
     
-    ϵ_min::Float64 = 0.3 # Productivity Lower Bound
-    ϵ_max::Float64 = 1.7 # Productivity Upper Bound
+    ϵ_min::Float64 = 0.7 # Productivity Lower Bound
+    ϵ_max::Float64 = 1.4 # Productivity Upper Bound
     nϵ::Int64 = 101 #Number of Productivity states 
     ϵ_grid::Array{Float64,1} = collect(range(ϵ_min, length = nϵ, stop = ϵ_max)) # Productivity Grid
 
     n_periods::Int64 = 112 # Number of periods
     n_periods_experiment::Int64 = 112 # Number of periods
     n_firms::Int64 = 2826 # Number of Firms
-    n_sims::Int64 = 100 # Number of simulations
+    n_sims::Int64 = 1000 # Number of simulations
 
     true_starter::Float64 = 0.10091176 # True starter rate
     true_stopper::Float64 = 0.11991836 # True stopper rate
@@ -159,7 +159,7 @@ function Initialize(base::Int64)
     tauchen_res_e = tauchen(prim.nϵ, ρ_e, σ_e)
     tauchen_trans_e = tauchen_res_e.p
 
-    res = Results(n_func, k_func, ex_func, ex_cap, ϵ, Q, ϵ_experiment, Q_experiment, val_func, τ, C_star, σ_e, ρ_e, FC_0, FC_1, δ, α_d, β_d, β_sq_d, n_prev_ex, prev_ex_grid, tauchen_trans_Q, tauchen_trans_e, σ_FC_0, σ_FC_1, val_func_subsidy, ex_func_subsidy, n_func_subsidy, k_func_subsidy) #initialize results struct
+    res = Results(n_func, k_func, ex_func, ex_cap, ϵ, Q, ϵ_experiment, Q_experiment, val_func, τ, C_star, σ_e, ρ_e, FC_0, FC_1, δ, α_d, β_d, β_sq_d, n_prev_ex, prev_ex_grid, tauchen_trans_Q, tauchen_trans_e, val_func_subsidy, ex_func_subsidy, n_func_subsidy, k_func_subsidy) #initialize results struct
     prim, res #return deliverables
 end
 
@@ -384,19 +384,19 @@ function MSM_delta_func_first3(x)
 
     if model == 3
         res.α_d = x[1]
-        res.δ = x[2]
+        res.β_d = x[2]
 
-        if x[6] >= 1
-            x[6] = 0.99
-        end
+        # if x[6] >= 1
+        #     x[6] = 0.99
+        # end
 
-        if x[7] < 0
-            x[7] = 0.01
-        end
+        # if x[7] < 0
+        #     x[7] = 0.01
+        # end
 
-        res.C_star = x[5]
-        res.ρ_e = x[6]
-        res.σ_e = x[7]
+        # res.C_star = x[5]
+        # res.ρ_e = x[6]
+        # res.σ_e = x[7]
 
     else
         if x[1] >= 1
@@ -419,15 +419,15 @@ function MSM_delta_func_first3(x)
     end
     res.FC_0 = x[3]
 
-    # FC_1 is x[4] no matter what
+    # # FC_1 is x[4] no matter what
     if x[4] < 0
         x[4] = 0
     end
     res.FC_1 = x[4]
 
     # Update the ϵ process
-    tauchen_res_e = tauchen(prim.nϵ, res.ρ_e, res.σ_e)
-    res.tauchen_trans_e = tauchen_res_e.p
+    # tauchen_res_e = tauchen(prim.nϵ, res.ρ_e, res.σ_e)
+    # res.tauchen_trans_e = tauchen_res_e.p
 
     # Update the export decay grid
     if res.δ < 1
@@ -437,6 +437,8 @@ function MSM_delta_func_first3(x)
         res.prev_ex_grid = [0, 1]
         res.n_prev_ex = length(res.prev_ex_grid)
     end
+
+    print(res.prev_ex_grid)
 
     # Initialize functions
     res.n_func = Array{Float64}(zeros(prim.nQ, prim.nϵ, res.n_prev_ex)) # initial worker function guess
@@ -899,7 +901,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 ϵ_experiment[i,j] = ϵ_grid[ϵ_index]
 
-                if i < 107 && i > 105
+                if i == 106
                     firms_export_decisions[i,j,k] = tariff_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                 else
                     firms_export_decisions[i,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
@@ -911,12 +913,14 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
                     firms_export_capital[i,j,k] = n_prev_ex
                 end
                 
-                if i < 107 && i > 105
+                if i == 106
                     firms_labor_decisions[i,j,k] = tariff_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                     firms_capital_decisions[i,j,k] = tariff_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+                    res.τ = tariff/100
                 else
                     firms_labor_decisions[i,j,k] = normal_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                     firms_capital_decisions[i,j,k] = normal_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+                    res.τ = 0
                 end
                 firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
                 firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
@@ -950,18 +954,27 @@ function Q_experiment(prim::Primitives, res::Results, filename::AbstractString)
         Random.seed!(k)
         for i = 2:n_periods_experiment
 
+            Q_index = 3
+            
+            if i < 105 || i > 107
+                Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + rand(Normal(0, σ_q)))
+                if Q_experiment[i] > 3
+                    Q_experiment[i] == 3
+                end
+                Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
+                Q_experiment[i] = Q_grid[Q_index]
+            elseif i == 105 || i == 107
+                Q_experiment[i] = 1
+                Q_index = 3
+            elseif i == 106
+                Q_experiment[i] = 0.9
+                Q_index = 2
+            end
+
             for j = 1:n_firms
                 
                 ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
-
-                if i < 107 && i > 105
-                    Q_experiment[i] = 0.9
-                    Q_index = 2
-                else
-                    Q_experiment[i] = 1
-                    Q_index = 3
-                end
                 
                 firms_export_decisions[i,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                 if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
@@ -1029,7 +1042,7 @@ function export_experience_experiment(prim::Primitives, res::Results, filename::
                 firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_experiment[i,j] Q_experiment[i]])
 
                 # After choices are made, export capital of everyone decays to 0 in period 106 and we continue
-                if i < 107 && i > 105
+                if i == 106
                     firms_export_capital[i,j,k] = 1
                 end
             end
@@ -1243,7 +1256,7 @@ function export_subsidy_experiment(prim::Primitives, res::Results)
 end
 
 function data_sim_delta_nsims(prim::Primitives, res::Results)
-    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, σ_FC_0, σ_FC_1, C_star, tauchen_trans_Q, tauchen_trans_e, prev_ex_grid = res #unpack value function
+    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, C_star, tauchen_trans_Q, tauchen_trans_e, prev_ex_grid = res #unpack value function
     @unpack C, w, r, nϵ, nQ, R, Q_grid, ϵ_grid, n_periods, n_firms, ρ_q, σ_q, θ, α_n, n_sims = prim #unpack primitives
 
     firms_export_capital = ones(n_periods, n_firms, n_sims)
