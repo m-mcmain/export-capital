@@ -1151,10 +1151,10 @@ function export_subsidy_experiment(prim::Primitives, res::Results)
                     if i == 105
                         subsidy_budget_rand += profit_func(prim, res, [firms_labor_decisions_rand[i,j,k], firms_capital_decisions_rand[i,j,k], 
                                                                        firms_export_decisions_rand[i,j,k], ϵ_experiment[i,j], 
-                                                                       firms_export_capital_rand[i,j,k], Q_experiment[i], FC_0, FC_1])*0.01
+                                                                       firms_export_capital_rand[i,j,k], Q_experiment[i], FC_0, FC_1])*0.1
                         subsidy_budget_targeted += profit_func(prim, res, [firms_labor_decisions_targeted[i,j,k], firms_capital_decisions_targeted[i,j,k], 
                                                                        firms_export_decisions_targeted[i,j,k], ϵ_experiment[i,j],
-                                                                       firms_export_capital_targeted[i,j,k], Q_experiment[i], FC_0, FC_1])*0.01
+                                                                       firms_export_capital_targeted[i,j,k], Q_experiment[i], FC_0, FC_1])*0.1
                     end            
                 else
                     # UPDATE INDICES FOR RAND AND SUBSIDY

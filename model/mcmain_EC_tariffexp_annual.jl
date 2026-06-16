@@ -40,7 +40,7 @@ firms_capital_decisions_Base = ones(prim.n_periods_experiment, prim.n_firms, pri
 firms_sales_domestic_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_export_sales_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
-@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base, firms_export_sales_Base = tariff_experiment(prim, res, 10, 1, filename)
+@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base, firms_export_sales_Base = tariff_experiment(prim, res, 10, 0, filename)
 Start_Base, Stop_Base, Foreign_Sales_Base, Sales_Base, Production_Base, output_Base = moment_calc_nsims(firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base)
 print(median(firms_sales_Base[105:112,:,:].-firms_sales_domestic_Base[105:112,:,:]))
 print("\\")
@@ -54,16 +54,16 @@ firms_capital_decisions_Delta = ones(prim.n_periods_experiment, prim.n_firms, pr
 firms_sales_domestic_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_export_sales_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
-@time firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta, firms_export_sales_Delta = tariff_experiment(prim, res, 10, 1, filename)
+@time firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta, firms_export_sales_Delta = tariff_experiment(prim, res, 10, 0, filename)
 Start_Delta, Stop_Delta, Foreign_Sales_Delta, Sales_Delta, Production_Delta, output_Delta = moment_calc_nsims(firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta)
 print(median(firms_sales_Base[105:112,:,:].-firms_sales_domestic_Base[105:112,:,:]))
 print("\\")
 
 periods = range(-1,5,length=7)
-plot(periods, [Start_Base[4:10] Start_Delta[4:10].+0.01], label=["δ=1" "Export Capital"], ylabel="Starter Rate", xlabel="Period", dpi=300)
+plot(periods, [Start_Base[4:10] Start_Delta[4:10]], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Starter Rate", xlabel="Period", dpi=300)
 xticks!(periods)
 savefig("./model/images/starter_compare_t_annual.png")
-plot(periods, [Stop_Base[4:10] Stop_Delta[4:10]], label=["δ=1" "Export Capital"], ylabel="Starter Rate", xlabel="Period", dpi=300)
+plot(periods, [Stop_Base[4:10] Stop_Delta[4:10]], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Starter Rate", xlabel="Period", dpi=300)
 xticks!(periods)
 savefig("./model/images/stopper_compare_t_annual.png")
 
@@ -72,7 +72,7 @@ sales_Delta_scaled = Sales_Delta[5:11] ./ Sales_Delta[5]
 sales_all = vcat(sales_Base_scaled, sales_Delta_scaled)
 groups = repeat(["δ=1", "Export Capital"], inner = 8)
 periods_full = repeat(-1:6, outer=2)
-plot(periods, [sales_Base_scaled sales_Delta_scaled], label=["δ=1" "Export Capital"], dpi=300)
+plot(periods, [sales_Base_scaled sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 savefig("./model/images/sales_compare_t_annual.png")
 
 foreign_sales_Base_scaled = Foreign_Sales_Base[5:9] ./ Foreign_Sales_Base[5]
@@ -81,7 +81,7 @@ foreign_sales_all = vcat(foreign_sales_Base_scaled, foreign_sales_Delta_scaled)
 groups = repeat(["δ=1", "Export Capital"], inner = 8)
 periods_full = repeat(-1:3)#, outer=2)
 periods_double = repeat(-1:5, outer=2)
-plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], label=["δ=1" "Export Capital"], dpi=300)
+plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 savefig("./model/images/foreign_sales_compare_t_annual.png")
 # groupedbar(periods_double, foreign_sales_all, group = groups, label=["Export Capital" "δ=1"], dpi=300)
 # savefig("./images/foreign_sales_compare_bar_t_annual.png")
@@ -104,7 +104,7 @@ export_sales_all = vcat(export_sales_Base_scaled, export_sales_Delta_scaled)
 groups = repeat(["δ=1", "Export Capital"], inner = 5)
 periods_full = repeat(-1:6)#, outer=2)
 periods_double = repeat(-1:5, outer=2)
-plot(periods_full, [export_sales_Base_scaled export_sales_Delta_scaled], label=["δ=1" "Export Capital"], ylabel="Scaled Export Revenues", xlabel="Period", dpi=300)
+plot(periods_full, [export_sales_Base_scaled export_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Scaled Export Revenues", xlabel="Period", dpi=300)
 savefig("./model/images/foreign_sales_compare_t_annual.png")
 
 ############################################################
@@ -136,10 +136,10 @@ firms_sales_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 Start_Delta, Stop_Delta, Foreign_Sales_Delta, Sales_Delta, Production_Delta, output_Delta = moment_calc_nsims(firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta)
 
 periods = range(-1,5,length=7)
-plot(periods, [Start_Base[4:10] Start_Delta[4:10]], label=["δ=1" "Export Capital"], dpi=300)
+plot(periods, [Start_Base[4:10] Start_Delta[4:10]], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 xticks!(periods)
 savefig("./model/images/starter_compare_Q_annual.png")
-plot(periods, [Stop_Base[4:10] Stop_Delta[4:10]], label=["δ=1" "Export Capital"], dpi=300)
+plot(periods, [Stop_Base[4:10] Stop_Delta[4:10]], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 xticks!(periods)
 savefig("./model/images/stopper_compare_Q_annual.png")
 
@@ -148,10 +148,8 @@ sales_Delta_scaled = Sales_Delta[5:11] ./ Sales_Delta[5]
 sales_all = vcat(sales_Base_scaled, sales_Delta_scaled)
 groups = repeat(["δ=1", "Export Capital"], inner = 8)
 periods_full = repeat(-1:5, outer=2)
-plot(periods, [sales_Base_scaled sales_Delta_scaled], label=["δ=1" "Export Capital"], dpi=300)
+plot(periods, [sales_Base_scaled sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 savefig("./model/images/sales_compare_Q_annual.png")
-groupedbar(periods, [sales_Base_scaled sales_Delta_scaled], label=["δ=1" "Export Capital"], dpi=300)
-savefig("./model/images/sales_compare_Q_annual_bar.png")
 
 foreign_sales_Base_scaled = Foreign_Sales_Base[5:11] ./ Foreign_Sales_Base[5]
 foreign_sales_Delta_scaled = Foreign_Sales_Delta[5:11] ./ Foreign_Sales_Delta[5]
@@ -159,10 +157,8 @@ foreign_sales_all = vcat(foreign_sales_Base_scaled, foreign_sales_Delta_scaled)
 groups = repeat(["δ=1", "Export Capital"], inner = 7)
 periods_full = repeat(-1:5)#, outer=2)
 periods_double = repeat(-1:5, outer=2)
-plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], label=["δ=1" "Export Capital"], dpi=300)
+plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 savefig("./model/images/foreign_sales_compare_Q_annual.png")
-groupedbar(periods_double, foreign_sales_all, group = groups, label=["Export Capital" "δ=1"], dpi=300)
-savefig("./model/images/foreign_sales_compare_bar_Q_annual.png")
 
 ############################################################
 #              Export Capital - Experiment                 #
@@ -194,10 +190,10 @@ firms_export_sales_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n
 Start_Delta, Stop_Delta, Foreign_Sales_Delta, Sales_Delta, Production_Delta, output_Delta = moment_calc_nsims(firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta)
 
 periods = range(-1,5,length=7)
-plot(periods, [Start_Base[4:10] Start_Delta[4:10]], label=["δ=1" "Export Capital"], dpi=300)
+plot(periods, [Start_Base[4:10] Start_Delta[4:10]], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 xticks!(periods)
 savefig("./model/images/starter_compare_EE_annual.png")
-plot(periods, [Stop_Base[4:10] Stop_Delta[4:10]], label=["δ=1" "Export Capital"], dpi=300)
+plot(periods, [Stop_Base[4:10] Stop_Delta[4:10]], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 xticks!(periods)
 savefig("./model/images/stopper_compare_EE_annual.png")
 
@@ -206,10 +202,8 @@ sales_Delta_scaled = Sales_Delta[5:11] ./ Sales_Delta[5]
 sales_all = vcat(sales_Base_scaled, sales_Delta_scaled)
 groups = repeat(["δ=1", "Export Capital"], inner = 7)
 periods_full = repeat(-1:5, outer=2)
-plot(periods, [sales_Base_scaled sales_Delta_scaled], label=["δ=1" "Export Capital"], dpi=300)
+plot(periods, [sales_Base_scaled sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 savefig("./model/images/sales_compare_EE_annual.png")
-groupedbar(periods, [sales_Base_scaled sales_Delta_scaled], label=["δ=1" "Export Capital"], dpi=300)
-savefig("./model/images/sales_compare_EE_annual_bar.png")
 
 foreign_sales_Base_scaled = Foreign_Sales_Base[5:11] ./ Foreign_Sales_Base[5]
 foreign_sales_Delta_scaled = Foreign_Sales_Delta[5:11] ./ Foreign_Sales_Delta[5]
@@ -217,11 +211,8 @@ foreign_sales_all = vcat(foreign_sales_Base_scaled, foreign_sales_Delta_scaled)
 groups = repeat(["δ=1", "Export Capital"], inner = 7)
 periods_full = repeat(-1:5)#, outer=2)
 periods_double = repeat(-1:5, outer=2)
-plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], label=["Sunk Cost" "+Export Capital"], dpi=300)
+plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+Export Capital"], dpi=300)
 savefig("./model/images/foreign_sales_compare_EE_annual.png")
-groupedbar(periods_double, foreign_sales_all, group = groups, label=["Export Capital" "δ=1"], dpi=300)
-savefig("./model/images/foreign_sales_compare_bar_EE_annual.png")
-
 
 firms_export_sales_Base_sumAvg = mean(sum(firms_export_sales_Base[101:112,:,:], dims = 2), dims=3)
 export_sales_Base_scaled = firms_export_sales_Base_sumAvg[5:11] ./ firms_export_sales_Base_sumAvg[5]
