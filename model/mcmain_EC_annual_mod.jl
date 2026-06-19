@@ -18,13 +18,13 @@ if install == 1
     Pkg.add("FixedEffectModels")
     Pkg.add("QuantEcon")
     Pkg.add("DelimitedFiles")
+    Pkg.add("DelimitedFiles")
 end
 
 using Parameters, Optim, Distributions, SharedArrays, Random, JLD2, Statistics, StatsBase, GLM, DataFrames, OrderedCollections, LinearAlgebra, FixedEffectModels, QuantEcon, DelimitedFiles
 #Plots,  Distributed,
 #addprocs(15)
 include("mcmain_EC_model_annual_mod.jl")
-#include("mcmain_EC_RFC_model_annual_mod.jl")
 ##############################################################
 #####                     Optim                           ####
 ##############################################################
@@ -46,19 +46,17 @@ for i = 13:20
     model_file = "export_capital.txt"
     
     runif = rand(Xoshiro(i), 5)
+    prim, res = Initialize(2)
     println("Beginning of Iteration ", i, ":")
-    if i == 0
-        random_x0 = [0.5704358764309491 0.05389818114125237] #1.6741901913074753 0.4352053721156689 0.14822662063483324] 
-    else
-        random_x0 = [runif[1]*0.5 runif[2]*0.1 runif[3]*5 runif[4]] #runif[5]*0.35]
-    end
+    # random_x0 = [runif[4] runif[5]*0.5 runif[1]*20+5 runif[2]*2 0.23 0.71 0.18]
+    random_x0 = [0.05 0.05 2.28655364976607 0.5038568304392312 0.15437472662956264 0.6878931557489516 0.1821507667406799]
     opt_res_canon_random = optimize(MSM_delta_func_first3, random_x0)
     minimizers_canon_random = transpose(Optim.minimizer(opt_res_canon_random))
     #println(minimizers_canon_random[1:3])
     println(Optim.minimum(opt_res_canon_random))
     rand_results[i-10,:] = vcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
     open(model_file,"a") do file
-        println(file, rand_results[i-10,:])
+        println(file, rand_results[i,:])
     end 
 end
 print(rand_results)
@@ -68,17 +66,18 @@ print(rand_results)
 ##############################################################
 # Initialize params and data
 prim, res = Initialize(3)
-panel = zeros(prim.n_sims*prim.n_firms*12, 6)
+panel = zeros(prim.n_sims*prim.n_firms*12, 7)
 firm_export_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_labor_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_capital_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_domestic = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_all = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firms_export_sales = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
+productivities = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 # Solve the model with the parameters
 Solve_model(prim,res)
 # Simulate the data
-firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales = data_sim_delta_nsims(prim, res)
+firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims_prod(prim, res)
 row = 1
 for k = 1:prim.n_sims
     for j = 1:prim.n_firms
@@ -90,25 +89,27 @@ for k = 1:prim.n_sims
             panel[row,4] = firm_capital_choices[100+i,j,k]
             panel[row,5] = firm_sales_all[100+i,j,k]
             panel[row,6] = firms_export_sales[100+i,j,k]
+            panel[row,7] = productivities[100+i,j,k]
             row += 1
         end
     end
 end
-writedlm("./data/Panel_Sim_delta_test.csv", panel, ",")
+writedlm("./data/Panel_Sim_delta.csv", panel, ",")
 ##############################################################
 #####         Output Simulated Sunk Cost Panel            ####
 ##############################################################
 prim, res = Initialize(1)
-panel = zeros(prim.n_sims*prim.n_firms*12, 6)
+panel = zeros(prim.n_sims*prim.n_firms*12, 7)
 firm_export_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_labor_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_capital_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_domestic = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_all = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
+productivities = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 # Solve the model with the parameters
 Solve_model(prim,res)
 # Simulate the data
-firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales = data_sim_delta_nsims(prim, res)
+firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims_prod(prim, res)
 row = 1
 for k = 1:prim.n_sims
     for j = 1:prim.n_firms
@@ -119,6 +120,8 @@ for k = 1:prim.n_sims
             panel[row,3] = firm_export_choices[100+i,j,k]
             panel[row,4] = firm_capital_choices[100+i,j,k]
             panel[row,5] = firm_sales_all[100+i,j,k]
+            panel[row,6] = firms_export_sales[100+i,j,k]
+            panel[row,7] = productivities[100+i,j,k]
             row += 1
         end
     end
