@@ -56,8 +56,9 @@ for i = 13:20
     println(Optim.minimum(opt_res_canon_random))
     rand_results[i-10,:] = vcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
     open(model_file,"a") do file
-        println(file, rand_results[i,:])
+        println(file, rand_results[i-10,:])
     end 
+    rand_results[i,:] = hcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
 end
 print(rand_results)
 
