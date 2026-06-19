@@ -40,7 +40,7 @@ include("mcmain_EC_model_annual_mod.jl")
 #####                     Optim Delta                     ####
 ##############################################################
 rand_results = zeros(10, 5)
-for i = 12:20
+for i = 13:20
     # Make sure these line up with model file
     model = 3
     model_file = "export_capital.txt"
@@ -58,7 +58,7 @@ for i = 12:20
     println(Optim.minimum(opt_res_canon_random))
     rand_results[i-10,:] = vcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
     open(model_file,"a") do file
-        println(file, rand_results[i,:])
+        println(file, rand_results[i-10,:])
     end 
 end
 print(rand_results)

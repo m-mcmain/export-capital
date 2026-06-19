@@ -24,7 +24,7 @@
     n_periods::Int64 = 112 # Number of periods
     n_periods_experiment::Int64 = 112 # Number of periods
     n_firms::Int64 = 2826 # Number of Firms
-    n_sims::Int64 = 1000 # Number of simulations
+    n_sims::Int64 = 100 # Number of simulations
 
     true_starter::Float64 = 0.10091176 # True starter rate
     true_stopper::Float64 = 0.11991836 # True stopper rate
