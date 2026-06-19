@@ -24,7 +24,7 @@
     n_periods::Int64 = 112 # Number of periods
     n_periods_experiment::Int64 = 112 # Number of periods
     n_firms::Int64 = 2826 # Number of Firms
-    n_sims::Int64 = 100 # Number of simulations
+    n_sims::Int64 = 500 # Number of simulations
 
     true_starter::Float64 = 0.10091176 # True starter rate
     true_stopper::Float64 = 0.11991836 # True stopper rate
@@ -67,8 +67,6 @@ mutable struct Results
     prev_ex_grid::Array{Float64,1} # Previous export grid
     tauchen_trans_Q::Array{Float64,2} # Tauchen's Method Transition Probs for Q
     tauchen_trans_e::Array{Float64,2} # Tauchen's Method Transition Probs for ϵ
-    σ_FC_0::Float64 # i.i.d. SD Normal Shock to FC_0
-    σ_FC_1::Float64 # i.i.d. SD Normal Shock to FC_1
     # Res for Subsidy Experiment
     val_func_subsidy::Array{Float64, 3} # Value function with one time subsidy
     n_func_subsidy::Array{Float64, 3} # Optimal Workers
@@ -1280,7 +1278,7 @@ function data_sim_delta_nsims(prim::Primitives, res::Results)
 end
 
 function data_sim_delta_nsims_prod(prim::Primitives, res::Results)
-    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, σ_FC_0, σ_FC_1, C_star, tauchen_trans_Q, tauchen_trans_e, prev_ex_grid = res #unpack value function
+    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, C_star, tauchen_trans_Q, tauchen_trans_e, prev_ex_grid = res #unpack value function
     @unpack C, w, r, nϵ, nQ, R, Q_grid, ϵ_grid, n_periods, n_firms, ρ_q, σ_q, θ, α_n, n_sims = prim #unpack primitives
 
     firms_export_capital = ones(n_periods, n_firms, n_sims)

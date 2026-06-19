@@ -5,6 +5,9 @@ rename (v1 v2 v3 v4 v5 v6 v7) (firm year exported capital sales export_sales pro
 gen lsales = log(sales)
 gen lcapital = log(capital)
 
+* Drop Duplicates for Now
+duplicates drop firm year, force
+
 xtset firm year
 gen lsales_lag = l.lsales
 gen lcapital_lag = l.lcapital
@@ -147,9 +150,6 @@ tab f5changed_export_exit if current_stint > 1 & !fchanged_export_exit & !f2chan
 matrix survival_reentry[5,1] = frequencies[1,1]/(frequencies[1,1]+frequencies[2,1])
 
 * Re-Entrants Productivity
-matrix define survival_reentry = (0 \ 0 \ 0 \ 0 \ 0)
-matrix colnames survival_reentry = "Re-Entry"
-
 sum productivity if !fchanged_export_exit & current_stint > 1, det
 
 sum productivity if current_stint > 1 & !fchanged_export_exit & !f2changed_export_exit, det
@@ -350,6 +350,9 @@ import delimited "../../export-capital sim data/Panel_Sim_noDelta.csv"
 rename (v1 v2 v3 v4 v5 v6 v7) (firm year exported capital sales export_sales productivity)
 gen lsales = log(sales)
 gen lcapital = log(capital)
+
+* Drop Duplicates for Now
+duplicates drop firm year, force
 
 xtset firm year
 gen lsales_lag = l.lsales
