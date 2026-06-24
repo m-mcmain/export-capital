@@ -40,25 +40,25 @@ include("mcmain_EC_model_annual_mod.jl")
 #####                     Optim Delta                     ####
 ##############################################################
 rand_results = zeros(10, 5)
-for i = 13:20
+for i = 1:1
     # Make sure these line up with model file
     model = 3
     model_file = "export_capital.txt"
     
     runif = rand(Xoshiro(i), 5)
-    prim, res = Initialize(2)
+    prim, res = Initialize(model)
     println("Beginning of Iteration ", i, ":")
     # random_x0 = [runif[4] runif[5]*0.5 runif[1]*20+5 runif[2]*2 0.23 0.71 0.18]
-    random_x0 = [0.05 0.05 2.28655364976607 0.5038568304392312 0.15437472662956264 0.6878931557489516 0.1821507667406799]
+    random_x0 = [0.03379118541575009 0.003269279322491091 3.0133789036830056 0.5286860069055453]
     opt_res_canon_random = optimize(MSM_delta_func_first3, random_x0)
     minimizers_canon_random = transpose(Optim.minimizer(opt_res_canon_random))
     #println(minimizers_canon_random[1:3])
     println(Optim.minimum(opt_res_canon_random))
-    rand_results[i-10,:] = vcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
+    rand_results[i,:] = vcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
     open(model_file,"a") do file
-        println(file, rand_results[i-10,:])
+        println(file, rand_results[i,:])
     end 
-    rand_results[i,:] = hcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
+    rand_results[i] = hcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
 end
 print(rand_results)
 
