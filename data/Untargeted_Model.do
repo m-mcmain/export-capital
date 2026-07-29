@@ -214,7 +214,11 @@ matrix rowjoinbyname esr_y5 = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
 tabstat esr if !reentry_occurs & length_current_stint > 5, by(years_exporting) save
 matrix rowjoinbyname esr_y5plus = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
 matrix coljoinbyname esr_one = esr_y1 esr_y2 esr_y3 esr_y4 esr_y5 esr_y5plus
+
+* twoway (histogram productivity if length_current_stint==1 & !reentry_occurs, start(0.76) width(0.02) color(red%30)) (histogram productivity if length_current_stint==2 & !reentry_occurs, start(0.76) width(0.02) color(green%30)), legend(order(1 "1" 2 "2"))
+
 * Plot!
+
 preserve
 
 clear
@@ -225,7 +229,7 @@ label variable esr_one2 "2"
 label variable esr_one3 "3"
 label variable esr_one4 "4"
 label variable esr_one5 "5"
-label variable esr_one6 "5+"
+label variable esr_one6 "6+"
 gen years_exporting = _n
 label variable years_exporting "Years Exporting"
 
@@ -258,7 +262,7 @@ label variable esr_one_noperm2 "2"
 label variable esr_one_noperm3 "3"
 label variable esr_one_noperm4 "4"
 label variable esr_one_noperm5 "5"
-label variable esr_one_noperm6 "5+"
+label variable esr_one_noperm6 "6+"
 gen years_exporting = _n
 label variable years_exporting "Years Exporting"
 
@@ -291,7 +295,7 @@ label variable esr_reentrant_first2 "2"
 label variable esr_reentrant_first3 "3"
 label variable esr_reentrant_first4 "4"
 label variable esr_reentrant_first5 "5"
-label variable esr_reentrant_first6 "5+"
+label variable esr_reentrant_first6 "6+"
 gen years_exporting = _n
 label variable years_exporting "Years Exporting"
 
@@ -325,7 +329,7 @@ label variable esr_reentries2 "2"
 label variable esr_reentries3 "3"
 label variable esr_reentries4 "4"
 label variable esr_reentries5 "5"
-label variable esr_reentries6 "5+"
+label variable esr_reentries6 "6+"
 gen years_exporting = _n
 label variable years_exporting "Years Exporting"
 
@@ -333,6 +337,151 @@ graph twoway (line (esr_reentries1 esr_reentries2 esr_reentries3 esr_reentries4 
 graph export ./images/esr/esr_reentries_delta.pdf, replace
 
 restore
+
+*****************************************************************************
+* Productivity Over Export Spells, First-Time Entrants vs. Re-Entrants Delta:
+*****************************************************************************
+* Total:
+tab years_exporting, sum(productivity)
+
+* Split by Exporter Type
+tabstat productivity if !reentry_occurs & length_current_stint == 1, by(years_exporting) save
+matrix rowjoinbyname productivity_y1 = r(Stat1)
+tabstat productivity if !reentry_occurs & length_current_stint == 2, by(years_exporting) save
+matrix rowjoinbyname productivity_y2 = r(Stat1) r(Stat2)
+tabstat productivity if !reentry_occurs & length_current_stint == 3, by(years_exporting) save
+matrix rowjoinbyname productivity_y3 = r(Stat1) r(Stat2) r(Stat3)
+tabstat productivity if !reentry_occurs & length_current_stint == 4, by(years_exporting) save
+matrix rowjoinbyname productivity_y4 = r(Stat1) r(Stat2) r(Stat3) r(Stat4)
+tabstat productivity if !reentry_occurs & length_current_stint == 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5 = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+tabstat productivity if !reentry_occurs & length_current_stint > 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5plus = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+matrix coljoinbyname productivity_one = productivity_y1 productivity_y2 productivity_y3 productivity_y4 productivity_y5 productivity_y5plus
+
+* twoway (histogram productivity if length_current_stint==1 & !reentry_occurs, start(0.76) width(0.02) color(red%30)) (histogram productivity if length_current_stint==2 & !reentry_occurs, start(0.76) width(0.02) color(green%30)), legend(order(1 "1" 2 "2"))
+
+* Plot!
+
+preserve
+
+clear
+svmat productivity_one
+
+label variable productivity_one1 "1 yr spell"
+label variable productivity_one2 "2"
+label variable productivity_one3 "3"
+label variable productivity_one4 "4"
+label variable productivity_one5 "5"
+label variable productivity_one6 "6+"
+gen years_exporting = _n
+label variable years_exporting "Years Exporting"
+
+graph twoway (line (productivity_one1 productivity_one2 productivity_one3 productivity_one4 productivity_one5 productivity_one6) years_exporting, ytitle("Export to Sales Ratio") legend(position(0) bplacement(seast) order(1 2 3 4 5 6)) lwidth(thick thick thick thick thick thick) lcolor("51 34 136" "17 119 51" "204 102 119" "148 203 236" "220 205 125" "221 221 221") msymbol(O)) (scatter productivity_one1 years_exporting, mcolor("51 34 136"))
+graph export ./images/productivity/productivity_one_delta.pdf, replace
+
+restore
+
+tabstat productivity if !reentry_occurs & length_current_stint == 1 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y1 = r(Stat1) 
+tabstat productivity if !reentry_occurs & length_current_stint == 2 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y2 = r(Stat1) r(Stat2)
+tabstat productivity if !reentry_occurs & length_current_stint == 3 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y3 = r(Stat1) r(Stat2) r(Stat3)
+tabstat productivity if !reentry_occurs & length_current_stint == 4 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y4 = r(Stat1) r(Stat2) r(Stat3) r(Stat4)
+tabstat productivity if !reentry_occurs & length_current_stint == 5 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y5 = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+tabstat productivity if !reentry_occurs & length_current_stint >5  & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y5plus = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+matrix coljoinbyname productivity_one_noperm = productivity_y1 productivity_y2 productivity_y3 productivity_y4 productivity_y5 productivity_y5plus
+* Plot!
+preserve
+
+clear
+svmat productivity_one_noperm
+
+label variable productivity_one_noperm1 "1 yr spell"
+label variable productivity_one_noperm2 "2"
+label variable productivity_one_noperm3 "3"
+label variable productivity_one_noperm4 "4"
+label variable productivity_one_noperm5 "5"
+label variable productivity_one_noperm6 "6+"
+gen years_exporting = _n
+label variable years_exporting "Years Exporting"
+
+graph twoway (line (productivity_one_noperm1 productivity_one_noperm2 productivity_one_noperm3 productivity_one_noperm4 productivity_one_noperm5 productivity_one_noperm6) years_exporting, ytitle("Export to Sales Ratio") legend(position(0) bplacement(seast) order(1 2 3 4 5 6)) lwidth(thick thick thick thick thick thick) lcolor("51 34 136" "17 119 51" "204 102 119" "148 203 236" "220 205 125" "221 221 221") msymbol(O)) (scatter productivity_one_noperm1 years_exporting, mcolor("51 34 136"))
+graph export ./images/productivity/productivity_one_noperm_delta.pdf, replace
+
+restore
+
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 1, by(years_exporting) save
+matrix rowjoinbyname productivity_y1 = r(Stat1)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 2, by(years_exporting) save
+matrix rowjoinbyname productivity_y2 = r(Stat1) r(Stat2)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 3, by(years_exporting) save
+matrix rowjoinbyname productivity_y3 = r(Stat1) r(Stat2) r(Stat3)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 4, by(years_exporting) save
+matrix rowjoinbyname productivity_y4 = r(Stat1) r(Stat2) r(Stat3) r(Stat4)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5 = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint > 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5plus = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+matrix coljoinbyname productivity_reentrant_first = productivity_y1 productivity_y2 productivity_y3 productivity_y4 productivity_y5 productivity_y5plus
+* Plot!
+preserve
+
+clear
+svmat productivity_reentrant_first
+
+label variable productivity_reentrant_first1 "1 yr spell"
+label variable productivity_reentrant_first2 "2"
+label variable productivity_reentrant_first3 "3"
+label variable productivity_reentrant_first4 "4"
+label variable productivity_reentrant_first5 "5"
+label variable productivity_reentrant_first6 "6+"
+gen years_exporting = _n
+label variable years_exporting "Years Exporting"
+
+graph twoway (line (productivity_reentrant_first1 productivity_reentrant_first2 productivity_reentrant_first3 productivity_reentrant_first4 productivity_reentrant_first5 productivity_reentrant_first6) years_exporting, ytitle("Export to Sales Ratio") legend(position(0) bplacement(seast) order(1 2 3 4 5 6)) lwidth(thick thick thick thick thick thick) lcolor("51 34 136" "17 119 51" "204 102 119" "148 203 236" "220 205 125" "221 221 221") msymbol(O)) (scatter productivity_reentrant_first1 years_exporting, mcolor("51 34 136"))
+graph export ./images/productivity/productivity_reentrant_first_delta.pdf, replace
+
+restore
+
+
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 1, by(years_exporting) save
+matrix rowjoinbyname productivity_y1 = r(Stat1)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 2, by(years_exporting) save
+matrix rowjoinbyname productivity_y2 = r(Stat1) r(Stat2)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 3, by(years_exporting) save
+matrix rowjoinbyname productivity_y3 = r(Stat1) r(Stat2) r(Stat3)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 4, by(years_exporting) save
+matrix rowjoinbyname productivity_y4 = r(Stat1) r(Stat2) r(Stat3) r(Stat4)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5 = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint > 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5plus = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+matrix coljoinbyname productivity_reentries = productivity_y1 productivity_y2 productivity_y3 productivity_y4 productivity_y5 productivity_y5plus
+* Plot!
+preserve
+
+clear
+svmat productivity_reentries
+
+label variable productivity_reentries1 "1 yr spell"
+label variable productivity_reentries2 "2"
+label variable productivity_reentries3 "3"
+label variable productivity_reentries4 "4"
+label variable productivity_reentries5 "5"
+label variable productivity_reentries6 "6+"
+gen years_exporting = _n
+label variable years_exporting "Years Exporting"
+
+graph twoway (line (productivity_reentries1 productivity_reentries2 productivity_reentries3 productivity_reentries4 productivity_reentries5 productivity_reentries6) years_exporting, ytitle("Export to Sales Ratio") legend(position(0) bplacement(seast) order(1 2 3 4 5 6)) lwidth(thick thick thick thick thick thick) lcolor("51 34 136" "17 119 51" "204 102 119" "148 203 236" "220 205 125" "221 221 221")) (scatter productivity_reentries1 years_exporting, mcolor("51 34 136"))
+graph export ./images/productivity/productivity_reentries_delta.pdf, replace
+
+restore
+
 
 // reghdfe log_esr reentry permanent_exporter if changed_export_est_enter, absorb(ciiu4_max)
 // reghdfe log_esr reentry permanent_exporter paper_ind food_ind textile_ind if changed_export_est_enter & R_T
@@ -502,7 +651,7 @@ matrix survival_reentry[5,1] = frequencies[1,1]/(frequencies[1,1]+frequencies[2,
 matrix define survival_reentry_first = (0 \ 0 \ 0 \ 0 \ 0)
 matrix colnames survival_reentry_first = "Re-Entry First"
 
-tab fchanged_export_exit if current_stint == 1 & reentrant
+tab fchanged_export_exit if current_stint == 1 & reentrant, matcell(frequencies)
 matrix survival_reentry_first[1,1] = frequencies[1,1]/(frequencies[1,1]+frequencies[2,1])
 
 tab f2changed_export_exit if current_stint == 1 & reentrant & !fchanged_export_exit, matcell(frequencies)
@@ -521,9 +670,9 @@ matrix coljoinbyname survival_nodelta = survival_all survival_noForever survival
 
 restore
 
-**************************************************************
-* Export Intensity, First-Time Entrants vs. Re-Entrants Delta:
-**************************************************************
+*****************************************************************
+* Export Intensity, First-Time Entrants vs. Re-Entrants No Delta:
+*****************************************************************
 gen esr = export_sales/sales
 gen log_esr = log(export_sales/sales)
 gen reentry = current_stint > 1
@@ -562,7 +711,7 @@ label variable esr_one2 "2"
 label variable esr_one3 "3"
 label variable esr_one4 "4"
 label variable esr_one5 "5"
-label variable esr_one6 "5+"
+label variable esr_one6 "6+"
 gen years_exporting = _n
 label variable years_exporting "Years Exporting"
 
@@ -595,7 +744,7 @@ label variable esr_one_noperm2 "2"
 label variable esr_one_noperm3 "3"
 label variable esr_one_noperm4 "4"
 label variable esr_one_noperm5 "5"
-label variable esr_one_noperm6 "5+"
+label variable esr_one_noperm6 "6+"
 gen years_exporting = _n
 label variable years_exporting "Years Exporting"
 
@@ -629,7 +778,7 @@ label variable esr_reentrant_first2 "2"
 label variable esr_reentrant_first3 "3"
 label variable esr_reentrant_first4 "4"
 label variable esr_reentrant_first5 "5"
-label variable esr_reentrant_first6 "5+"
+label variable esr_reentrant_first6 "6+"
 gen years_exporting = _n
 label variable years_exporting "Years Exporting"
 
@@ -663,12 +812,152 @@ label variable esr_reentries2 "2"
 label variable esr_reentries3 "3"
 label variable esr_reentries4 "4"
 label variable esr_reentries5 "5"
-label variable esr_reentries6 "5+"
+label variable esr_reentries6 "6+"
 gen years_exporting = _n
 label variable years_exporting "Years Exporting"
 
 graph twoway (line (esr_reentries1 esr_reentries2 esr_reentries3 esr_reentries4 esr_reentries5 esr_reentries6) years_exporting, ytitle("Export to Sales Ratio") legend(position(0) bplacement(seast) order(1 2 3 4 5 6)) lwidth(thick thick thick thick thick thick) lcolor("51 34 136" "17 119 51" "204 102 119" "148 203 236" "220 205 125" "221 221 221")) (scatter esr_reentries1 years_exporting, mcolor("51 34 136"))
 graph export ./images/esr/esr_reentries_nodelta.pdf, replace
+
+restore
+
+*****************************************************************************
+* Productivity Over Export Spells, First-Time Entrants vs. Re-Entrants Delta:
+*****************************************************************************
+* Total:
+tab years_exporting, sum(productivity)
+
+tabstat productivity if !reentry_occurs & length_current_stint == 1, by(years_exporting) save
+matrix rowjoinbyname productivity_y1 = r(Stat1)
+tabstat productivity if !reentry_occurs & length_current_stint == 2, by(years_exporting) save
+matrix rowjoinbyname productivity_y2 = r(Stat1) r(Stat2)
+tabstat productivity if !reentry_occurs & length_current_stint == 3, by(years_exporting) save
+matrix rowjoinbyname productivity_y3 = r(Stat1) r(Stat2) r(Stat3)
+tabstat productivity if !reentry_occurs & length_current_stint == 4, by(years_exporting) save
+matrix rowjoinbyname productivity_y4 = r(Stat1) r(Stat2) r(Stat3) r(Stat4)
+tabstat productivity if !reentry_occurs & length_current_stint == 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5 = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+tabstat productivity if !reentry_occurs & length_current_stint > 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5plus = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+matrix coljoinbyname productivity_one = productivity_y1 productivity_y2 productivity_y3 productivity_y4 productivity_y5 productivity_y5plus
+* Plot!
+preserve
+
+clear
+svmat productivity_one
+
+label variable productivity_one1 "1 yr spell"
+label variable productivity_one2 "2"
+label variable productivity_one3 "3"
+label variable productivity_one4 "4"
+label variable productivity_one5 "5"
+label variable productivity_one6 "6+"
+gen years_exporting = _n
+label variable years_exporting "Years Exporting"
+
+graph twoway (line (productivity_one1 productivity_one2 productivity_one3 productivity_one4 productivity_one5 productivity_one6) years_exporting, ytitle("Export to Sales Ratio") legend(position(0) bplacement(seast) order(1 2 3 4 5 6)) lwidth(thick thick thick thick thick thick) lcolor("51 34 136" "17 119 51" "204 102 119" "148 203 236" "220 205 125" "221 221 221") msymbol(O)) (scatter productivity_one1 years_exporting, mcolor("51 34 136"))
+graph export ./images/productivity/productivity_one_nodelta.pdf, replace
+
+restore
+
+tabstat productivity if !reentry_occurs & length_current_stint == 1 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y1 = r(Stat1) 
+tabstat productivity if !reentry_occurs & length_current_stint == 2 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y2 = r(Stat1) r(Stat2)
+tabstat productivity if !reentry_occurs & length_current_stint == 3 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y3 = r(Stat1) r(Stat2) r(Stat3)
+tabstat productivity if !reentry_occurs & length_current_stint == 4 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y4 = r(Stat1) r(Stat2) r(Stat3) r(Stat4)
+tabstat productivity if !reentry_occurs & length_current_stint == 5 & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y5 = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+tabstat productivity if !reentry_occurs & length_current_stint >5  & years_exported != 12, by(years_exporting) save
+matrix rowjoinbyname productivity_y5plus = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+matrix coljoinbyname productivity_one_noperm = productivity_y1 productivity_y2 productivity_y3 productivity_y4 productivity_y5 productivity_y5plus
+* Plot!
+preserve
+
+clear
+svmat productivity_one_noperm
+
+label variable productivity_one_noperm1 "1 yr spell"
+label variable productivity_one_noperm2 "2"
+label variable productivity_one_noperm3 "3"
+label variable productivity_one_noperm4 "4"
+label variable productivity_one_noperm5 "5"
+label variable productivity_one_noperm6 "6+"
+gen years_exporting = _n
+label variable years_exporting "Years Exporting"
+
+graph twoway (line (productivity_one_noperm1 productivity_one_noperm2 productivity_one_noperm3 productivity_one_noperm4 productivity_one_noperm5 productivity_one_noperm6) years_exporting, ytitle("Export to Sales Ratio") legend(position(0) bplacement(seast) order(1 2 3 4 5 6)) lwidth(thick thick thick thick thick thick) lcolor("51 34 136" "17 119 51" "204 102 119" "148 203 236" "220 205 125" "221 221 221") msymbol(O)) (scatter productivity_one_noperm1 years_exporting, mcolor("51 34 136"))
+graph export ./images/productivity/productivity_one_noperm_nodelta.pdf, replace
+
+restore
+
+
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 1, by(years_exporting) save
+matrix rowjoinbyname productivity_y1 = r(Stat1)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 2, by(years_exporting) save
+matrix rowjoinbyname productivity_y2 = r(Stat1) r(Stat2)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 3, by(years_exporting) save
+matrix rowjoinbyname productivity_y3 = r(Stat1) r(Stat2) r(Stat3)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 4, by(years_exporting) save
+matrix rowjoinbyname productivity_y4 = r(Stat1) r(Stat2) r(Stat3) r(Stat4)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint == 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5 = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+tabstat productivity if current_stint == 1 & reentrant & length_current_stint > 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5plus = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+matrix coljoinbyname productivity_reentrant_first = productivity_y1 productivity_y2 productivity_y3 productivity_y4 productivity_y5 productivity_y5plus
+* Plot!
+preserve
+
+clear
+svmat productivity_reentrant_first
+
+label variable productivity_reentrant_first1 "1 yr spell"
+label variable productivity_reentrant_first2 "2"
+label variable productivity_reentrant_first3 "3"
+label variable productivity_reentrant_first4 "4"
+label variable productivity_reentrant_first5 "5"
+label variable productivity_reentrant_first6 "6+"
+gen years_exporting = _n
+label variable years_exporting "Years Exporting"
+
+graph twoway (line (productivity_reentrant_first1 productivity_reentrant_first2 productivity_reentrant_first3 productivity_reentrant_first4 productivity_reentrant_first5 productivity_reentrant_first6) years_exporting, ytitle("Export to Sales Ratio") legend(position(0) bplacement(seast) order(1 2 3 4 5 6)) lwidth(thick thick thick thick thick thick) lcolor("51 34 136" "17 119 51" "204 102 119" "148 203 236" "220 205 125" "221 221 221") msymbol(O)) (scatter productivity_reentrant_first1 years_exporting, mcolor("51 34 136"))
+graph export ./images/productivity/productivity_reentrant_first_nodelta.pdf, replace
+
+restore
+
+
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 1, by(years_exporting) save
+matrix rowjoinbyname productivity_y1 = r(Stat1)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 2, by(years_exporting) save
+matrix rowjoinbyname productivity_y2 = r(Stat1) r(Stat2)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 3, by(years_exporting) save
+matrix rowjoinbyname productivity_y3 = r(Stat1) r(Stat2) r(Stat3)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 4, by(years_exporting) save
+matrix rowjoinbyname productivity_y4 = r(Stat1) r(Stat2) r(Stat3) r(Stat4)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint == 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5 = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+tabstat productivity if current_stint > 1 & reentrant & length_current_stint > 5, by(years_exporting) save
+matrix rowjoinbyname productivity_y5plus = r(Stat1) r(Stat2) r(Stat3) r(Stat4) r(Stat5)
+matrix coljoinbyname productivity_reentries = productivity_y1 productivity_y2 productivity_y3 productivity_y4 productivity_y5 productivity_y5plus
+* Plot!
+preserve
+
+clear
+svmat productivity_reentries
+
+label variable productivity_reentries1 "1 yr spell"
+label variable productivity_reentries2 "2"
+label variable productivity_reentries3 "3"
+label variable productivity_reentries4 "4"
+label variable productivity_reentries5 "5"
+label variable productivity_reentries6 "6+"
+gen years_exporting = _n
+label variable years_exporting "Years Exporting"
+
+graph twoway (line (productivity_reentries1 productivity_reentries2 productivity_reentries3 productivity_reentries4 productivity_reentries5 productivity_reentries6) years_exporting, ytitle("Export to Sales Ratio") legend(position(0) bplacement(seast) order(1 2 3 4 5 6)) lwidth(thick thick thick thick thick thick) lcolor("51 34 136" "17 119 51" "204 102 119" "148 203 236" "220 205 125" "221 221 221")) (scatter productivity_reentries1 years_exporting, mcolor("51 34 136"))
+graph export ./images/productivity/productivity_reentries_nodelta.pdf, replace
 
 restore
 
