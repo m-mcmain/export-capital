@@ -40,10 +40,10 @@ firms_capital_decisions_Base = ones(prim.n_periods_experiment, prim.n_firms, pri
 firms_sales_domestic_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_export_sales_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
-@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base, firms_export_sales_Base = tariff_experiment(prim, res, 10, 1, filename)
-Start_Base, Stop_Base, Foreign_Sales_Base, Sales_Base, Production_Base, output_Base = moment_calc_nsims(firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base)
-print(median(firms_sales_Base[105:112,:,:].-firms_sales_domestic_Base[105:112,:,:]))
-print("\\")
+@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base, firms_export_sales_Base = tariff_experiment(prim, res, 10, 0, filename)
+#Start_Base, Stop_Base, Foreign_Sales_Base, Sales_Base, Production_Base, output_Base = moment_calc_nsims(firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base)
+#print(median(firms_sales_Base[prim.n_periods-7:prim.n_periods,:,:].-firms_sales_domestic_Base[prim.n_periods-7:prim.n_periods,:,:]))
+#print("\\")
 
 filename = "delta_annual"
 prim, res = Initialize(delta) #initialize primitive and results structs for base model
@@ -56,7 +56,7 @@ firms_sales_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_export_sales_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 @time firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta, firms_export_sales_Delta = tariff_experiment(prim, res, 10, 1, filename)
 Start_Delta, Stop_Delta, Foreign_Sales_Delta, Sales_Delta, Production_Delta, output_Delta = moment_calc_nsims(firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta)
-print(median(firms_sales_Base[105:112,:,:].-firms_sales_domestic_Base[105:112,:,:]))
+print(median(firms_sales_Base[prim.n_periods-7:prim.n_periods,:,:].-firms_sales_domestic_Base[prim.n_periods-7:prim.n_periods,:,:]))
 print("\\")
 
 periods = range(-1,5,length=7)
@@ -81,10 +81,10 @@ periods_full = repeat(-1:3)#, outer=2)
 plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], label=["Sunk Cost" "+ Export Capital"], dpi=300)
 savefig("./model/images/foreign_sales_compare_t_annual.png")
 
-firms_export_sales_Base_sumAvg = mean(sum(firms_export_sales_Base[101:112,:,:], dims = 2), dims=3)
+firms_export_sales_Base_sumAvg = mean(sum(firms_export_sales_Base[prim.n_periods-11:prim.n_periods,:,:], dims = 2), dims=3)
 export_sales_Base_scaled = firms_export_sales_Base_sumAvg[5:12] ./ firms_export_sales_Base_sumAvg[5]
 
-firms_export_sales_Delta_sumAvg = mean(sum(firms_export_sales_Delta[101:112,:,:], dims = 2), dims=3)
+firms_export_sales_Delta_sumAvg = mean(sum(firms_export_sales_Delta[prim.n_periods-11:prim.n_periods,:,:], dims = 2), dims=3)
 export_sales_Delta_scaled = firms_export_sales_Delta_sumAvg[5:12] ./ firms_export_sales_Delta_sumAvg[5]
 
 export_sales_all = vcat(export_sales_Base_scaled, export_sales_Delta_scaled)
@@ -202,10 +202,10 @@ periods_double = repeat(-1:5, outer=2)
 plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
 savefig("./model/images/foreign_sales_compare_EE_annual.png")
 
-firms_export_sales_Base_sumAvg = mean(sum(firms_export_sales_Base[101:112,:,:], dims = 2), dims=3)
+firms_export_sales_Base_sumAvg = mean(sum(firms_export_sales_Base[prim.n_periods-11:prim.n_periods,:,:], dims = 2), dims=3)
 export_sales_Base_scaled = firms_export_sales_Base_sumAvg[5:11] ./ firms_export_sales_Base_sumAvg[5]
 
-firms_export_sales_Delta_sumAvg = mean(sum(firms_export_sales_Delta[101:112,:,:], dims = 2), dims=3)
+firms_export_sales_Delta_sumAvg = mean(sum(firms_export_sales_Delta[prim.n_periods-11:prim.n_periods,:,:], dims = 2), dims=3)
 export_sales_Delta_scaled = firms_export_sales_Delta_sumAvg[5:11] ./ firms_export_sales_Delta_sumAvg[5]
 
 export_sales_all = vcat(export_sales_Base_scaled, export_sales_Delta_scaled)
@@ -315,10 +315,10 @@ periods_full = repeat(-1:5, outer=2)
 plot(periods, [sales_rand_scaled sales_targeted_scaled], label=["Random" "Targeted"], dpi=300)
 savefig("./model/images/sales_compare_subsidy_annual.png")
 
-firms_export_sales_Delta_rand_sumAvg = mean(sum(firms_export_sales_Delta_rand[101:112,:,:], dims = 2), dims=3)
+firms_export_sales_Delta_rand_sumAvg = mean(sum(firms_export_sales_Delta_rand[prim.n_periods-11:prim.n_periods,:,:], dims = 2), dims=3)
 export_sales_rand_scaled = firms_export_sales_Delta_rand_sumAvg[5:11] ./ firms_export_sales_Delta_rand_sumAvg[5]
 
-firms_export_sales_Delta_targeted_sumAvg = mean(sum(firms_export_sales_Delta_targeted[101:112,:,:], dims = 2), dims=3)
+firms_export_sales_Delta_targeted_sumAvg = mean(sum(firms_export_sales_Delta_targeted[prim.n_periods-11:prim.n_periods,:,:], dims = 2), dims=3)
 export_sales_targeted_scaled = firms_export_sales_Delta_targeted_sumAvg[5:11] ./ firms_export_sales_Delta_targeted_sumAvg[5]
 
 export_sales_all = vcat(export_sales_rand_scaled, export_sales_targeted_scaled)
