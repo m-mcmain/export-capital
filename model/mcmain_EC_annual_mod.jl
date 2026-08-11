@@ -19,10 +19,11 @@ if install == 1
     Pkg.add("QuantEcon")
     Pkg.add("DelimitedFiles")
     Pkg.add("DelimitedFiles")
+    Pkg.add("MacroEconometricModels")
 end
 
-using Parameters, Optim, Distributions, SharedArrays, Random, JLD2, Statistics, StatsBase, GLM, DataFrames, OrderedCollections, LinearAlgebra, FixedEffectModels, QuantEcon, DelimitedFiles
-#Plots,  Distributed,
+using Plots, Parameters, Optim, Distributions, SharedArrays, Random, JLD2, Statistics, StatsBase, GLM, DataFrames, OrderedCollections, LinearAlgebra, FixedEffectModels, QuantEcon, DelimitedFiles, MacroEconometricModels
+#,  Distributed,
 #addprocs(15)
 include("mcmain_EC_model_annual_mod.jl")
 ##############################################################
@@ -40,25 +41,26 @@ include("mcmain_EC_model_annual_mod.jl")
 #####                     Optim Delta                     ####
 ##############################################################
 rand_results = zeros(10, 5)
-for i = 13:20
+for i = 2:5
     # Make sure these line up with model file
     model = 3
     model_file = "export_capital.txt"
     
     runif = rand(Xoshiro(i), 5)
-    prim, res = Initialize(2)
+    prim, res = Initialize(model)
     println("Beginning of Iteration ", i, ":")
     # random_x0 = [runif[4] runif[5]*0.5 runif[1]*20+5 runif[2]*2 0.23 0.71 0.18]
-    random_x0 = [0.05 0.05 2.28655364976607 0.5038568304392312 0.15437472662956264 0.6878931557489516 0.1821507667406799]
+    # random_x0 = [0.034157125465177206 0.0043437058546394874 2.987375311563109 0.5449688801454866]
+    random_x0 = [runif[1]*0.2 runif[2]*0.1 runif[3]*5 runif[4]]
     opt_res_canon_random = optimize(MSM_delta_func_first3, random_x0)
     minimizers_canon_random = transpose(Optim.minimizer(opt_res_canon_random))
     #println(minimizers_canon_random[1:3])
     println(Optim.minimum(opt_res_canon_random))
-    rand_results[i-10,:] = vcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
+    rand_results[i,:] = vcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
     open(model_file,"a") do file
-        println(file, rand_results[i-10,:])
+        println(file, rand_results[i,:])
     end 
-    rand_results[i,:] = hcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
+    rand_results[i] = hcat(Optim.minimum(opt_res_canon_random), minimizers_canon_random)
 end
 print(rand_results)
 
@@ -78,7 +80,168 @@ productivities = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 # Solve the model with the parameters
 Solve_model(prim,res)
 # Simulate the data
-firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims_prod(prim, res)
+firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims(prim, res)
+
+###
+# Create %Δ Plots for Canonical
+###
+lchange_sales_Delta = zeros(prim.n_periods_experiment-1, prim.n_firms, prim.n_sims)
+lchange_sales_Delta = (firm_sales_all[2:prim.n_periods_experiment,:,:].-firm_sales_all[1:prim.n_periods_experiment-1,:,:])./firm_sales_all[1:prim.n_periods_experiment-1,:,:]
+avg_lchange_sales_Delta = mean(lchange_sales_Delta, dims = [2,3])
+plot(avg_lchange_sales_Delta[2:prim.n_periods_experiment-1])
+
+total_export_sales_Delta = sum(firms_export_sales, dims = 2)
+plot(mean(total_export_sales_Delta,dims=3)[:,1,1])
+
+total_sales_Delta = sum(firm_sales_all, dims = 2)
+plot(mean(total_sales_Delta,dims=3)[:,1,1])
+
+lchange_export_sales_Delta = zeros(prim.n_periods_experiment-1, prim.n_firms, prim.n_sims)
+lchange_export_sales_Delta = (firms_export_sales[2:prim.n_periods_experiment,:,:].-firms_export_sales[1:prim.n_periods_experiment-1,:,:])./firms_export_sales[1:prim.n_periods_experiment-1,:,:]
+avg_lchange_export_sales_Delta = mean(lchange_export_sales_Delta, dims = [2,3])
+plot(avg_lchange_export_sales_Delta[2:prim.n_periods_experiment-1])
+
+## Starter/Stopper Rate Over Time
+firms_export_decisions_no_zero = hcat(firm_export_choices, ones(prim.n_periods_experiment, 1, prim.n_sims), zeros(prim.n_periods_experiment, 1, prim.n_sims)) 
+firms_export_change = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
+for i = 2:prim.n_periods_experiment
+    for j = 1:prim.n_firms
+        firms_export_change[i,j,:] = firm_export_choices[i,j,:] .- firm_export_choices[i-1,j,:]
+    end
+end
+firms_export_change_no_zero = hcat(firms_export_change, ones(prim.n_periods_experiment, 1, prim.n_sims), -1 .* ones(prim.n_periods_experiment, 1, prim.n_sims)) 
+starter_rate = zeros(prim.n_periods_experiment-1,prim.n_sims)
+stopper_rate = zeros(prim.n_periods_experiment-1,prim.n_sims)
+
+exporter_i = countmap(firms_export_change_no_zero[1,:,:])
+exporter_i_minus1 = countmap(firms_export_change_no_zero[1,:,:])
+for i = 2:prim.n_periods_experiment-1
+    for k = 1:prim.n_sims
+        exporter_i_minus1 = countmap(firms_export_decisions_no_zero[i-1,:,k])
+        exporter_i = countmap(firms_export_change_no_zero[i,:,k])
+        
+        starter_rate[i-1,k] = exporter_i[1]/exporter_i_minus1[0]
+        stopper_rate[i-1,k] = exporter_i[-1]/exporter_i_minus1[1]
+    end
+end
+avg_starter_rate_Delta = mean(starter_rate, dims=2)
+plot(avg_starter_rate_Delta)
+avg_stopper_rate_Delta = mean(stopper_rate,dims=2)
+plot(avg_stopper_rate_Delta)
+
+## Coef of Variation Over Time
+coef_variation = zeros(prim.n_periods_experiment-20, prim.n_sims)
+for j = 1:prim.n_sims
+    for i = 1:prim.n_periods_experiment-20
+        coef_variation[i,j] = std(log.(firm_sales_domestic[i:i+20,:,j]))/mean(log.(firm_sales_domestic[i:i+20,:,j]))
+    end
+end
+coef_variation_delta = mean(coef_variation,dims=2)
+plot(coef_variation_delta)
+
+## β-Coef Over Time
+β_sales_delta = zeros(prim.n_periods_experiment-20, 1)
+for i = 2:prim.n_periods_experiment-20
+    for s = 1:1
+        sales_today = firm_sales_domestic[i+1,:,s]
+        sales_yesterday = firm_sales_domestic[i,:,s]
+        year = []
+        firm_num = []
+        for i = i+2:i+19
+            sales_today = [sales_today; firm_sales_domestic[i,:,s]]
+            sales_yesterday = [sales_yesterday; firm_sales_domestic[i-1,:,s]]
+        end
+
+        for i = 2:20
+            for j = 1:prim.n_firms
+                year = [year; string("Y",i)]
+                firm_num = [firm_num; string("F",j)]
+            end
+        end
+
+        sales_today_vec = copyto!(Vector{Float64}(undef,length(sales_today)),sales_today)
+        sales_yesterday_vec = copyto!(Vector{Float64}(undef,length(sales_yesterday)),sales_yesterday)
+
+        reg_DF = DataFrame(s_today = log.(sales_today_vec), s_yesterday = log.(sales_yesterday_vec), y = year, f = firm_num)
+        reg_results = reg(reg_DF, @formula(s_today ~ s_yesterday + fe(y) + fe(f)))
+
+        β_moment = coef(reg_results)
+        β_sales_delta[i,s] = β_moment[1]
+    end
+end
+plot(β_sales_delta)
+
+## Export-Sales Ratio Over Time
+export_sales_ratio_delta = zeros(prim.n_periods_experiment-20)
+for i = 1:prim.n_periods_experiment-20
+    export_sales_ratio_delta[i] = sum(firms_export_sales[i:i+19,:,:]./firm_sales_all[i:i+19,:,:])/sum(firm_export_choices[i:i+19,:,:])
+end
+plot(export_sales_ratio_delta)
+
+## Average Years Out and Frac Immedate Re-Entry Over Time
+avg_years_out_delta = zeros(prim.n_periods_experiment-12)
+frac_immediate_reentry_delta = zeros(prim.n_periods_experiment-12)
+reentries = zeros(prim.n_periods_experiment-12)
+years_out_before_reentry = zeros(prim.n_periods_experiment-12)
+exits_all_noEndYears = zeros(prim.n_periods_experiment-12)
+immediate_reentries = zeros(prim.n_periods_experiment-12)
+
+for i=1:prim.n_periods_experiment-12
+    
+    exits_all = Int.(firms_export_change[i:i+11,:,:] .== -1)
+    exits_cumulative = Int.(firms_export_change[i:i+11,:,:] .== -1)
+    final_exit_no_reentry = ones(Int, 12, prim.n_firms, prim.n_sims)
+    entries_all = Int.(firms_export_change[i:i+11,:,:] .== 1)
+
+    for j in 2:12
+        exits_cumulative[j,:,:] .+= exits_cumulative[j-1,:,:]
+    end
+
+    # Set entries where the firm is exporting equal to zero, keeping strings of numbers with length equal to years out of each exit
+    exits_cumulative = exits_cumulative .* (ones(Int, 12, prim.n_firms, prim.n_sims) .- firm_export_choices[i:i+11,:,:])
+    # Test if that exit is the final exit and has no re-entry tied to it
+    for j in 1:11
+        final_exit_no_reentry[j,:,:] = Int.((exits_cumulative[j,:,:] .== exits_cumulative[12,:,:]))
+    end
+    # Only keep exits that result in re-entries
+    exits_cumulative = exits_cumulative .* (1 .- final_exit_no_reentry)
+    # Loop through the number of exits and sum up the years out that result in re-entry
+    max_exits = maximum(exits_cumulative)
+    exits_count_map = countmap(exits_cumulative)
+    years_out_before_reentry[i] = 0
+    for j in 1:Int(max_exits)
+        # Test if that number of exits actually occurs ever
+        try
+            exits_count_map[j]
+        catch
+            # if not set it to 0
+            exits_count_map[j] = 0
+        end
+        years_out_before_reentry[i] += exits_count_map[j]
+    end
+    # Get maximum exits for each firm-simulation, which is number of re-entries
+    reentries[i] = sum(maximum(exits_cumulative, dims = 1))
+    # If there are no re-entries make them very small so it will be very far off the moment
+    if reentries[i] == 0
+        reentries[i] = 1e-5
+        years_out_before_reentry[i] = 1
+    end
+
+    # Frac Immediate Re-Entry
+    exits_all_noEndYears[i] = sum(exits_all[2:11, :, :])
+    immediate_reentries[i] = sum(Int.((exits_all[2:11, :, :] .== 1) .& (entries_all[3:12, :, :] .== 1)))
+
+    # If there are no exits, change it such that the data will be very far off the moment
+    if exits_all_noEndYears[i] == 0
+        exits_all_noEndYears[i] = 1e-5
+        immediate_reentries[i] = 1
+    end
+end
+avg_years_out_delta = years_out_before_reentry./reentries
+plot(avg_years_out_delta)
+frac_immediate_reentry_delta = immediate_reentries./exits_all_noEndYears
+plot(frac_immediate_reentry_delta)
+
 row = 1
 for k = 1:prim.n_sims
     for j = 1:prim.n_firms
@@ -111,6 +274,166 @@ productivities = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 Solve_model(prim,res)
 # Simulate the data
 firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims_prod(prim, res)
+
+###
+# Create %Δ Plots for Canonical
+###
+lchange_sales_Base = zeros(prim.n_periods_experiment-1, prim.n_firms, prim.n_sims)
+lchange_sales_Base = (firm_sales_all[2:prim.n_periods_experiment,:,:].-firm_sales_all[1:prim.n_periods_experiment-1,:,:])./firm_sales_all[1:prim.n_periods_experiment-1,:,:]
+avg_lchange_sales_Base = mean(lchange_sales_Base, dims = [2,3])
+plot(avg_lchange_sales_Base[2:prim.n_periods_experiment-1])
+
+total_export_sales_Base = sum(firms_export_sales, dims = 2)
+plot(mean(total_export_sales_Base,dims=3)[:,1,1])
+
+total_sales_Base = sum(firm_sales_all, dims = 2)
+plot(mean(total_sales_Base,dims=3)[:,1,1])
+
+lchange_export_sales_Base = zeros(prim.n_periods_experiment-1, prim.n_firms, prim.n_sims)
+lchange_export_sales_Base = (firms_export_sales[2:prim.n_periods_experiment,:,:].-firms_export_sales[1:prim.n_periods_experiment-1,:,:])./firms_export_sales[1:prim.n_periods_experiment-1,:,:]
+avg_lchange_export_sales_Base = mean(lchange_export_sales_Base, dims = [2,3])
+plot(avg_lchange_export_sales_Base[2:prim.n_periods_experiment-1])
+
+firms_export_decisions_no_zero = hcat(firm_export_choices, ones(prim.n_periods_experiment, 1, prim.n_sims), zeros(prim.n_periods_experiment, 1, prim.n_sims)) 
+firms_export_change = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
+for i = 2:prim.n_periods_experiment
+    for j = 1:prim.n_firms
+        firms_export_change[i,j,:] = firm_export_choices[i,j,:] .- firm_export_choices[i-1,j,:]
+    end
+end
+firms_export_change_no_zero = hcat(firms_export_change, ones(prim.n_periods_experiment, 1, prim.n_sims), -1 .* ones(prim.n_periods_experiment, 1, prim.n_sims)) 
+starter_rate = zeros(prim.n_periods_experiment-1,prim.n_sims)
+stopper_rate = zeros(prim.n_periods_experiment-1,prim.n_sims)
+
+exporter_i = countmap(firms_export_change_no_zero[1,:,:])
+exporter_i_minus1 = countmap(firms_export_change_no_zero[1,:,:])
+for i = 2:prim.n_periods_experiment-1
+    for k = 1:prim.n_sims
+        exporter_i_minus1 = countmap(firms_export_decisions_no_zero[i-1,:,k])
+        exporter_i = countmap(firms_export_change_no_zero[i,:,k])
+        
+        starter_rate[i-1,k] = exporter_i[1]/exporter_i_minus1[0]
+        stopper_rate[i-1,k] = exporter_i[-1]/exporter_i_minus1[1]
+    end
+end
+avg_starter_rate_Base = mean(starter_rate, dims=2)
+plot(avg_starter_rate_Base)
+avg_stopper_rate_Base = mean(stopper_rate,dims=2)
+plot(avg_stopper_rate_Base)
+
+## Coef of Variation Over Time
+coef_variation = zeros(prim.n_periods_experiment-20, prim.n_sims)
+for j = 1:prim.n_sims
+    for i = 1:prim.n_periods_experiment-20
+        coef_variation[i,j] = std(log.(firm_sales_domestic[i:i+20,:,j]))/mean(log.(firm_sales_domestic[i:i+20,:,j]))
+    end
+end
+coef_variation_Base = mean(coef_variation,dims=2)
+plot(coef_variation_Base)
+
+## β-Coef Over Time
+β_sales_Base = zeros(prim.n_periods_experiment-20, 1)
+for i = 2:prim.n_periods_experiment-20
+    for s = 1:1
+        sales_today = firm_sales_domestic[i+1,:,s]
+        sales_yesterday = firm_sales_domestic[i,:,s]
+        year = []
+        firm_num = []
+        for i = i+2:i+19
+            sales_today = [sales_today; firm_sales_domestic[i,:,s]]
+            sales_yesterday = [sales_yesterday; firm_sales_domestic[i-1,:,s]]
+        end
+
+        for i = 2:20
+            for j = 1:prim.n_firms
+                year = [year; string("Y",i)]
+                firm_num = [firm_num; string("F",j)]
+            end
+        end
+
+        sales_today_vec = copyto!(Vector{Float64}(undef,length(sales_today)),sales_today)
+        sales_yesterday_vec = copyto!(Vector{Float64}(undef,length(sales_yesterday)),sales_yesterday)
+
+        reg_DF = DataFrame(s_today = log.(sales_today_vec), s_yesterday = log.(sales_yesterday_vec), y = year, f = firm_num)
+        reg_results = reg(reg_DF, @formula(s_today ~ s_yesterday + fe(y) + fe(f)))
+
+        β_moment = coef(reg_results)
+        β_sales_Base[i,s] = β_moment[1]
+    end
+end
+plot(β_sales_Base)
+
+## Export-Sales Ratio Over Time
+export_sales_ratio_Base = zeros(prim.n_periods_experiment-20)
+for i = 1:prim.n_periods_experiment-20
+    export_sales_ratio_Base[i] = sum(firms_export_sales[i:i+19,:,:]./firm_sales_all[i:i+19,:,:])/sum(firm_export_choices[i:i+19,:,:])
+end
+plot(export_sales_ratio_Base)
+
+## Average Years Out and Frac Immedate Re-Entry Over Time
+avg_years_out_Base = zeros(prim.n_periods_experiment-12)
+frac_immediate_reentry_Base = zeros(prim.n_periods_experiment-12)
+reentries = zeros(prim.n_periods_experiment-12)
+years_out_before_reentry = zeros(prim.n_periods_experiment-12)
+exits_all_noEndYears = zeros(prim.n_periods_experiment-12)
+immediate_reentries = zeros(prim.n_periods_experiment-12)
+
+for i=1:prim.n_periods_experiment-12
+    
+    exits_all = Int.(firms_export_change[i:i+11,:,:] .== -1)
+    exits_cumulative = Int.(firms_export_change[i:i+11,:,:] .== -1)
+    final_exit_no_reentry = ones(Int, 12, prim.n_firms, prim.n_sims)
+    entries_all = Int.(firms_export_change[i:i+11,:,:] .== 1)
+
+    for j in 2:12
+        exits_cumulative[j,:,:] .+= exits_cumulative[j-1,:,:]
+    end
+
+    # Set entries where the firm is exporting equal to zero, keeping strings of numbers with length equal to years out of each exit
+    exits_cumulative = exits_cumulative .* (ones(Int, 12, prim.n_firms, prim.n_sims) .- firm_export_choices[i:i+11,:,:])
+    # Test if that exit is the final exit and has no re-entry tied to it
+    for j in 1:11
+        final_exit_no_reentry[j,:,:] = Int.((exits_cumulative[j,:,:] .== exits_cumulative[12,:,:]))
+    end
+    # Only keep exits that result in re-entries
+    exits_cumulative = exits_cumulative .* (1 .- final_exit_no_reentry)
+    # Loop through the number of exits and sum up the years out that result in re-entry
+    max_exits = maximum(exits_cumulative)
+    exits_count_map = countmap(exits_cumulative)
+    years_out_before_reentry[i] = 0
+    for j in 1:Int(max_exits)
+        # Test if that number of exits actually occurs ever
+        try
+            exits_count_map[j]
+        catch
+            # if not set it to 0
+            exits_count_map[j] = 0
+        end
+        years_out_before_reentry[i] += exits_count_map[j]
+    end
+    # Get maximum exits for each firm-simulation, which is number of re-entries
+    reentries[i] = sum(maximum(exits_cumulative, dims = 1))
+    # If there are no re-entries make them very small so it will be very far off the moment
+    if reentries[i] == 0
+        reentries[i] = 1e-5
+        years_out_before_reentry[i] = 1
+    end
+
+    # Frac Immediate Re-Entry
+    exits_all_noEndYears[i] = sum(exits_all[2:11, :, :])
+    immediate_reentries[i] = sum(Int.((exits_all[2:11, :, :] .== 1) .& (entries_all[3:12, :, :] .== 1)))
+
+    # If there are no exits, change it such that the data will be very far off the moment
+    if exits_all_noEndYears[i] == 0
+        exits_all_noEndYears[i] = 1e-5
+        immediate_reentries[i] = 1
+    end
+end
+avg_years_out_Base = years_out_before_reentry./reentries
+plot(avg_years_out_Base)
+frac_immediate_reentry_Base = immediate_reentries./exits_all_noEndYears
+plot(frac_immediate_reentry_Base)
+
 row = 1
 for k = 1:prim.n_sims
     for j = 1:prim.n_firms
