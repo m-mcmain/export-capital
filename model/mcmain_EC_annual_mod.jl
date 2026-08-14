@@ -20,12 +20,45 @@ if install == 1
     Pkg.add("DelimitedFiles")
     Pkg.add("DelimitedFiles")
     Pkg.add("MacroEconometricModels")
+    Pkg.add("StatFiles")
+    Pkg.add("MixedModels")
 end
 
-using Plots, Parameters, Optim, Distributions, SharedArrays, Random, JLD2, Statistics, StatsBase, GLM, DataFrames, OrderedCollections, LinearAlgebra, FixedEffectModels, QuantEcon, DelimitedFiles, MacroEconometricModels
-#,  Distributed,
+using Plots, Parameters, Optim, Distributions, SharedArrays, Random, JLD2, Statistics, StatsBase, GLM, DataFrames, OrderedCollections, LinearAlgebra, FixedEffectModels, QuantEcon, DelimitedFiles, StatFiles, MixedModels
+#, MacroEconometricModels, Distributed,
 #addprocs(15)
 include("mcmain_EC_model_annual_mod.jl")
+
+
+data_df = DataFrame(load("/home/m/mcmain/export-capital/data/dta/Colombia_EAM_panel_regReady_backup_julia.dta"))
+
+pd_data = xtset(data_df, :nordest, :year)
+m_probit_data = estimate_xtprobit(pd_data, :exported_est, [:exported_est_prev, :exported_est_prev2, :exported_est_prev3, 
+                                                           :exported_est_prev4, :exported_est_prev5, :exported_est_prev6,
+                                                           :exported_est_prev7, :log_sales_est_lag, :log_average_wage_lag, :log_total_capital_lag,
+                                                           :exported_est_first_max, :mean_log_sales_est, :log_sales_est, :mean_log_average_wage_lag,
+                                                           :mean_log_total_capital_lag, :mean_log_sales_est_lag, :y_2016, :y_2017, :y_2018, :y_2019,
+                                                           :ind_10, :ind_11, :ind_13, :ind_14, :ind_15, :ind_16, :ind_17, :ind_18, :ind_19, :ind_20,
+                                                           :ind_21, :ind_22, :ind_23, :ind_24, :ind_25, :ind_27, :ind_28, :ind_29, :ind_31, :ind_32]; model=:re, maxiter=1000)
+m_ame_data = marginal_effects(m_probit_data) 
+MacroEconometricModels.report(m_probit_data)
+MacroEconometricModels.report(m_ame_data)
+
+# Try with GLM
+form = @formula(exported_est ~ 1 + exported_est_prev + exported_est_prev2 + exported_est_prev3 + 
+                                exported_est_prev4 + exported_est_prev5 + exported_est_prev6 +
+                                exported_est_prev7 + log_sales_est_lag + log_average_wage_lag + log_total_capital_lag +
+                                exported_est_first_max + mean_log_sales_est + log_sales_est + mean_log_average_wage_lag +
+                                mean_log_total_capital_lag + mean_log_sales_est_lag + y_2016 + y_2017 + y_2018 + y_2019 +
+                                ind_10 + ind_11 + ind_13 + ind_14 + ind_15 + ind_16 + ind_17 + ind_18 + ind_19 + ind_20 +
+                                ind_21 + ind_22 + ind_23 + ind_24 + ind_25 + ind_27 + ind_28 + ind_29 + ind_31 + ind_32 + (1 | nordest))
+
+# 2. Fit the model using a Binomial distribution and a Probit link function
+model = fit(GeneralizedLinearMixedModel, form, data_df, Binomial(), ProbitLink())
+
+# 3. Display the summary results
+println(model)
+
 ##############################################################
 #####                     Optim                           ####
 ##############################################################
@@ -50,8 +83,8 @@ for i = 2:5
     prim, res = Initialize(model)
     println("Beginning of Iteration ", i, ":")
     # random_x0 = [runif[4] runif[5]*0.5 runif[1]*20+5 runif[2]*2 0.23 0.71 0.18]
-    # random_x0 = [0.034157125465177206 0.0043437058546394874 2.987375311563109 0.5449688801454866]
-    random_x0 = [runif[1]*0.2 runif[2]*0.1 runif[3]*5 runif[4]]
+    random_x0 = [0.03897024180506729 0.007706900420490436 2.8967193278506573 0.5160469782313699]
+    # random_x0 = [runif[1]*0.2 runif[2]*0.1 runif[3]*5 runif[4]]
     opt_res_canon_random = optimize(MSM_delta_func_first3, random_x0)
     minimizers_canon_random = transpose(Optim.minimizer(opt_res_canon_random))
     #println(minimizers_canon_random[1:3])
@@ -83,7 +116,7 @@ Solve_model(prim,res)
 firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims(prim, res)
 
 ###
-# Create %Δ Plots for Canonical
+# Create %Δ Plots for Delta
 ###
 lchange_sales_Delta = zeros(prim.n_periods_experiment-1, prim.n_firms, prim.n_sims)
 lchange_sales_Delta = (firm_sales_all[2:prim.n_periods_experiment,:,:].-firm_sales_all[1:prim.n_periods_experiment-1,:,:])./firm_sales_all[1:prim.n_periods_experiment-1,:,:]
@@ -249,11 +282,11 @@ for k = 1:prim.n_sims
             # Panel will be: Firm Year Export Capital Sales Export Sales
             panel[row,1] = parse(Float32, string(k,".",j,1))
             panel[row,2] = i
-            panel[row,3] = firm_export_choices[100+i,j,k]
-            panel[row,4] = firm_capital_choices[100+i,j,k]
-            panel[row,5] = firm_sales_all[100+i,j,k]
-            panel[row,6] = firms_export_sales[100+i,j,k]
-            panel[row,7] = productivities[100+i,j,k]
+            panel[row,3] = firm_export_choices[prim.n_periods_experiment-12+i,j,k]
+            panel[row,4] = firm_capital_choices[prim.n_periods_experiment-12+i,j,k]
+            panel[row,5] = firm_sales_all[prim.n_periods_experiment-12+i,j,k]
+            panel[row,6] = firms_export_sales[prim.n_periods_experiment-12+i,j,k]
+            panel[row,7] = productivities[prim.n_periods_experiment-12+i,j,k]
             row += 1
         end
     end

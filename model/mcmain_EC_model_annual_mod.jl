@@ -24,7 +24,7 @@
     n_periods::Int64 = 262 # Number of periods
     n_periods_experiment::Int64 = n_periods # Number of periods
     n_firms::Int64 = 2826 # Number of Firms
-    n_sims::Int64 = 500 # Number of simulations
+    n_sims::Int64 = 1000 # Number of simulations
 
     true_starter::Float64 = 0.10091176 # True starter rate
     true_stopper::Float64 = 0.11991836 # True stopper rate
@@ -129,11 +129,11 @@ function Initialize(base::Int64)
         C_star = 0.16333309353877032
         ρ_e =  0.5717084452766545
         σ_e = 0.05447497950369329
-        FC_0 = 3.0133789036830056 # Fixed Cost based on Last Export
-        FC_1 = 0.5286860069055453 # Fixed Cost of reentry
+        FC_0 = 2.8967193278506573 # Fixed Cost based on Last Export
+        FC_1 =  0.5160469782313699 # Fixed Cost of reentry
         δ = 0.03379118541575009 # Export Knowledge Deprication guess 
-        α_d = 0.03379118541575009 # Export Capital Decay Intercept Guess 
-        β_d = 0.003269279322491091 # Export Capital Decay coefficient Guess       
+        α_d = 0.03897024180506729 # Export Capital Decay Intercept Guess 
+        β_d = 0.007706900420490436 # Export Capital Decay coefficient Guess       
         β_sq_d = 0.0 # Export Capital Decay squared coefficient Guess    
     end
 
@@ -150,10 +150,10 @@ function Initialize(base::Int64)
     val_func = Array{Float64}(zeros(prim.nQ, prim.nϵ, n_prev_ex)) # initial value function guess
 
     # Set up the tauchens for Q and ϵ
-    tauchen_res_Q = tauchen(prim.nQ, prim.ρ_q, prim.σ_q)
+    tauchen_res_Q = QuantEcon.tauchen(prim.nQ, prim.ρ_q, prim.σ_q)
     tauchen_trans_Q = tauchen_res_Q.p
 
-    tauchen_res_e = tauchen(prim.nϵ, ρ_e, σ_e)
+    tauchen_res_e = QuantEcon.tauchen(prim.nϵ, ρ_e, σ_e)
     tauchen_trans_e = tauchen_res_e.p
 
    # Generate the random shocks for Q and ϵ
@@ -322,7 +322,7 @@ function MSM_delta_func_first3(x)
     res.FC_1 = x[4]
 
     # Update the ϵ process
-    # tauchen_res_e = tauchen(prim.nϵ, res.ρ_e, res.σ_e)
+    # tauchen_res_e = QuantEcon.tauchen(prim.nϵ, res.ρ_e, res.σ_e)
     # res.tauchen_trans_e = tauchen_res_e.p
 
     # Update the export decay grid
@@ -346,7 +346,8 @@ function MSM_delta_func_first3(x)
 
     @time firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_domestic, firms_sales = data_sim_delta_nsims(prim, res)
     # median(firms_labor_decisions[prim.n_periods-11:prim.n_periods,:,:])
-    
+    # @time dynamic_probit(prim::Primitives, firms_export_decisions, firms_capital_decisions, firms_sales)
+    # print("Finished dynamic_probit. //")
     val_annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
     annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
     annual_firms_export_change = zeros(12, prim.n_firms, prim.n_sims)
@@ -676,6 +677,361 @@ function total_revenue(prim::Primitives, res::Results, x)
     # total_revenue = (1+x[3]*(x[5]*(1-res.τ))^θ*C_star/C)^(1/θ)*C^(1/θ)*x[4]*x[1]^(α_n*(θ-1)/θ)*x[2]^((1-α_n)*(θ-1)/θ)
     total_revenue = domestic_revenue(prim, res, x) + export_revenue(prim, res, x)
     return total_revenue
+end
+
+function data_sim_delta_nsims(prim::Primitives, res::Results)
+    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, C_star, tauchen_trans_Q, tauchen_trans_e, shocks_Q, shocks_ϵ, prev_ex_grid = res #unpack value function
+    @unpack C, w, r, nϵ, nQ, R, Q_grid, ϵ_grid, n_periods, n_firms, ρ_q, σ_q, θ, α_n, n_sims = prim #unpack primitives
+
+    firms_export_capital = ones(n_periods, n_firms, n_sims)
+    firms_export_decisions = zeros(n_periods, n_firms, n_sims)
+    firms_labor_decisions = ones(n_periods, n_firms, n_sims)
+    firms_capital_decisions = ones(n_periods, n_firms, n_sims)
+    firms_sales_non_exporter = zeros(n_periods, n_firms, n_sims)
+    firms_sales = zeros(n_periods, n_firms, n_sims)
+    firms_export_sales = zeros(n_periods, n_firms, n_sims)
+    
+    for k = 1:n_sims
+        Random.seed!(k)
+        for i = 2:n_periods
+
+            Q[i,k] = exp(ρ_q*log(Q[i-1,k]) + shocks_Q[i,k]*σ_q)
+            if Q[i,k] > 1.2
+                Q[i,k] == 1.2
+            elseif Q[i,k] < 0.8
+                Q[i,k] == 0.8
+            end
+            Q_index = findmin(abs.(Q[i,k] .- Q_grid))[2]
+
+            for j = 1:n_firms
+                
+                ϵ[i,j,k] = exp(ρ_e*log(ϵ[i-1,j,k]) + shocks_ϵ[i,j,k]*σ_e)
+                ϵ_index = findmin(abs.(ϵ[i,j,k] .- ϵ_grid))[2]
+                ϵ[i,j,k] = ϵ_grid[ϵ_index]
+                
+                firms_export_decisions[i,j,k] = ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+                
+                if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
+                    firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
+                elseif firms_export_decisions[i,j,k] == 1
+                    firms_export_capital[i,j,k] = n_prev_ex
+                end
+ 
+                firms_labor_decisions[i,j,k] = n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+                firms_capital_decisions[i,j,k] = k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]               
+                firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+            end
+        end
+    end
+
+    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, ϵ
+
+end
+
+function data_sim_delta_nsims_prod(prim::Primitives, res::Results)
+    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, C_star, tauchen_trans_Q, tauchen_trans_e, prev_ex_grid = res #unpack value function
+    @unpack C, w, r, nϵ, nQ, R, Q_grid, ϵ_grid, n_periods, n_firms, ρ_q, σ_q, θ, α_n, n_sims = prim #unpack primitives
+
+    firms_export_capital = ones(n_periods, n_firms, n_sims)
+    firms_export_decisions = zeros(n_periods, n_firms, n_sims)
+    firms_labor_decisions = ones(n_periods, n_firms, n_sims)
+    firms_capital_decisions = ones(n_periods, n_firms, n_sims)
+    firms_sales_non_exporter = zeros(n_periods, n_firms, n_sims)
+    firms_sales = zeros(n_periods, n_firms, n_sims)
+    firms_export_sales = zeros(n_periods, n_firms, n_sims)
+    
+    for k = 1:n_sims
+        Random.seed!(k)
+        for i = 2:n_periods
+
+            Q[i,k] = exp(ρ_q*log(Q[i-1,k]) + rand(Normal(0, σ_q)))
+            if Q[i,k] > 1.2
+                Q[i,k] == 1.2
+            elseif Q[i,k] < 0.8
+                Q[i,k] == 0.8
+            end
+            Q_index = findmin(abs.(Q[i,k] .- Q_grid))[2]
+
+            for j = 1:n_firms
+                
+                ϵ[i,j,k] = exp(ρ_e*log(ϵ[i-1,j,k]) + rand(Normal(0,σ_e)))
+                ϵ_index = findmin(abs.(ϵ[i,j,k] .- ϵ_grid))[2]
+                ϵ[i,j,k] = ϵ_grid[ϵ_index]
+                
+                firms_export_decisions[i,j,k] = ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+
+                if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
+                    firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
+                elseif firms_export_decisions[i,j,k] == 1
+                    firms_export_capital[i,j,k] = n_prev_ex
+                end
+ 
+                firms_labor_decisions[i,j,k] = n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+                firms_capital_decisions[i,j,k] = k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]               
+                firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+            end
+        end
+    end
+
+    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, ϵ
+
+end
+
+function moment_calc_nsims(firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_domestic, firms_sales)
+    Random.seed!(17)
+    val_annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_export_change = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_sales_domestic = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_sales = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_production = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_sales_foreign = zeros(12, prim.n_firms, prim.n_sims)
+    annual_total_production = zeros(12)
+    annual_total_sales_foreign = zeros(12)
+    annual_total_sales = zeros(12)
+
+    for j = 1:12
+        val_annual_firms_export_decisions[j,:,:] = val_annual_firms_export_decisions[j,:,:] .+ firms_export_decisions[j+prim.n_periods-12,:,:]
+        annual_firms_sales_domestic[j,:,:] = annual_firms_sales_domestic[j,:,:] .+ firms_sales_domestic[j+prim.n_periods-12,:,:]
+        annual_firms_sales[j,:,:] = annual_firms_sales[j,:,:] .+ firms_sales[j+prim.n_periods-12,:,:]
+        annual_firms_production[j,:,:] = annual_firms_production[j,:,:] .+ res.ϵ[j+prim.n_periods-12,:,:].*firms_labor_decisions[j+prim.n_periods-12,:,:].^prim.α_n .*firms_capital_decisions[j+prim.n_periods-12,:,:].^(1-prim.α_n)
+        annual_firms_sales_foreign[j,:,:] = annual_firms_sales_foreign[j,:,:] .+ firms_sales[j+prim.n_periods-12,:,:] .- firms_sales_domestic[j+prim.n_periods-12,:,:]
+    end
+       
+    annual_firms_export_decisions = val_annual_firms_export_decisions .> 0
+    mean_annual_firms_sales_foreign = mean(annual_firms_sales_foreign, dims=3)
+    mean_annual_firms_sales = mean(annual_firms_sales, dims=3)
+    mean_annual_firms_production = mean(annual_firms_production, dims=3)
+
+    for i = 1:12
+        for j = 1:prim.n_firms
+            if i == 1
+                annual_total_sales_foreign[i] = annual_total_sales_foreign[i] + mean_annual_firms_sales_foreign[i,j]
+                annual_total_sales[i] = annual_total_sales[i] + mean_annual_firms_sales[i,j]
+                annual_total_production[i] = annual_total_production[i] + mean_annual_firms_production[i,j]
+            else
+                annual_total_sales_foreign[i] = annual_total_sales_foreign[i] + mean_annual_firms_sales_foreign[i,j] 
+                annual_total_sales[i] = annual_total_sales[i] + mean_annual_firms_sales[i,j]
+                annual_total_production[i] = annual_total_production[i] + mean_annual_firms_production[i,j]
+                annual_firms_export_change[i,j,:] = annual_firms_export_decisions[i,j,:] .- annual_firms_export_decisions[i-1,j,:]
+            end
+        end
+    end
+    annual_starter_rate = zeros(11, prim.n_sims)
+    annual_stopper_rate = zeros(11, prim.n_sims)
+    # Add 1 and 0 to export decisions once to make sure neither are ever 0
+    annual_firms_export_decisions = hcat(annual_firms_export_decisions, ones(12, 1, prim.n_sims), zeros(12, 1, prim.n_sims))
+    # Add 1 and -1 to export changes once to make sure neither are ever 0
+    annual_firms_export_change = hcat(annual_firms_export_change, ones(12, 1, prim.n_sims), -1 .* ones(12, 1, prim.n_sims)) 
+    exporter_i = countmap(annual_firms_export_change[1,:,:])
+    exporter_i_minus1 = countmap(annual_firms_export_decisions[1,:,:])
+
+    for i = 2:12
+        for k = 1:prim.n_sims
+            exporter_i_minus1 = countmap(annual_firms_export_decisions[i-1,:,k])
+            exporter_i = countmap(annual_firms_export_change[i,:,k])
+            
+            annual_starter_rate[i-1,k] = exporter_i[1]/exporter_i_minus1[0]
+            annual_stopper_rate[i-1,k] = exporter_i[-1]/exporter_i_minus1[1]
+        end
+    end
+
+    mean_annual_starter_rate = mean(annual_starter_rate, dims=2)
+    mean_annual_stopper_rate = mean(annual_stopper_rate, dims=2)
+
+    sales_today = mean(annual_firms_sales[2,:,:], dims=2)
+    sales_yesterday = mean(annual_firms_sales[1,:,:], dims=2)
+    year = []
+    firm_num = []
+    for i = 3:12
+        sales_today = [sales_today; mean(annual_firms_sales[i,:,:],dims=2)]
+        sales_yesterday = [sales_yesterday; mean(annual_firms_sales[i-1,:,:],dims=2)]
+    end
+
+    for i = 2:12
+        for j = 1:prim.n_firms
+            year = [year; string("Y",i)]
+            firm_num = [firm_num; string("F",j)]
+        end
+    end
+
+    sales_today_vec = copyto!(Vector{Float64}(undef,length(sales_today)),sales_today)
+    sales_yesterday_vec = copyto!(Vector{Float64}(undef,length(sales_yesterday)),sales_yesterday)
+
+    reg_DF = DataFrame(s_today = log.(sales_today_vec), s_yesterday = log.(sales_yesterday_vec), y = year, f = firm_num)
+    reg_results = reg(reg_DF, @formula(s_today ~ s_yesterday + fe(y) + fe(f)))
+
+    β_moment = coef(reg_results)
+
+    output = zeros(5)
+
+    output[1] = mean(annual_starter_rate)
+    output[2] = mean(annual_stopper_rate)
+    output[3] = mean(res.C_star ./ (res.Q[prim.n_periods-11:prim.n_periods,17] .^(-1*prim.θ)))
+    output[4] = std(log.(annual_firms_sales_domestic[:,:,20]))/mean(log.(annual_firms_sales_domestic[:,:,20]))
+    output[5] = β_moment[1]
+
+    #print(output)
+    #print("\n")
+    #print([prim.true_starter, prim.true_stopper, prim.true_ave_es_ratio, prim.true_coef_var, prim.true_a_exp_growth])
+    #print("\n")
+
+    return mean_annual_starter_rate, mean_annual_stopper_rate, annual_total_sales_foreign, annual_total_sales, annual_total_production, output
+end
+
+function reentry_calcs(firms_export_decisions, firms_sales_domestic, firms_sales)
+    val_annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_export_change = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_sales_domestic = zeros(12, prim.n_firms, prim.n_sims)
+    annual_firms_sales = zeros(12, prim.n_firms, prim.n_sims)
+    prop_one_entry = zeros(prim.n_sims)
+    prop_two_entry = zeros(prim.n_sims)
+    prop_three_entry = zeros(prim.n_sims)
+    prop_four_entry = zeros(prim.n_sims)
+    prop_five_entry = zeros(prim.n_sims)
+    prop_six_entry = zeros(prim.n_sims)
+    prop_seven_entry = zeros(prim.n_sims)
+
+    for j = 1:12
+        val_annual_firms_export_decisions[j,:,:] = val_annual_firms_export_decisions[j,:,:] .+ firms_export_decisions[j+100,:,:]
+        annual_firms_sales_domestic[j,:,:] = annual_firms_sales_domestic[j,:,:] .+ firms_sales_domestic[j+100,:,:]
+        annual_firms_sales[j,:,:] = annual_firms_sales[j,:,:] .+ firms_sales[j+100,:,:]
+    end
+
+    annual_firms_export_decisions = val_annual_firms_export_decisions .> 0
+    annual_firms_export_change[1,:,:] = copy(annual_firms_export_decisions[1,:,:])
+
+    for i = 2:12
+        for j = 1:prim.n_firms
+            annual_firms_export_change[i,j,:] = annual_firms_export_decisions[i,j,:] .- annual_firms_export_decisions[i-1,j,:]
+        end
+    end
+
+    for k = 1:prim.n_sims
+        n_no_entry = 0
+        n_one_entry = 0
+        n_two_entries = 0
+        n_three_entries = 0
+        n_four_entries = 0
+        n_five_entries = 0
+        n_six_entries = 0
+        n_seven_entries = 0
+        export_entries = Vector{Int64}()
+        export_entries_no_zero = Vector{Int64}()
+
+        for i = 1:prim.n_firms
+            exporter_i_map = countmap(vcat(annual_firms_export_change[:,i,k],1))
+            if exporter_i_map[1] == 2
+                n_one_entry = n_one_entry + 1
+                export_entries = push!(export_entries, 1)
+                export_entries_no_zero = push!(export_entries_no_zero, 1)
+            elseif exporter_i_map[1] == 3
+                n_two_entries = n_two_entries + 1
+                export_entries =  push!(export_entries, 2)
+                export_entries_no_zero = push!(export_entries_no_zero, 2)
+            elseif exporter_i_map[1] == 4
+                n_three_entries = n_three_entries + 1
+                export_entries =  push!(export_entries, 3)
+                export_entries_no_zero = push!(export_entries_no_zero, 3)
+            elseif exporter_i_map[1] == 5
+                n_four_entries = n_four_entries + 1
+                export_entries =  push!(export_entries, 4)
+                export_entries_no_zero = push!(export_entries_no_zero, 4)
+            elseif exporter_i_map[1] == 6
+                n_five_entries = n_five_entries + 1
+                export_entries =  push!(export_entries, 5)
+                export_entries_no_zero = push!(export_entries_no_zero, 5)
+            elseif exporter_i_map[1] == 7
+                n_six_entries = n_six_entries + 1
+                export_entries =  push!(export_entries, 6)
+                export_entries_no_zero = push!(export_entries_no_zero, 6)
+            elseif exporter_i_map[1] == 8
+                n_seven_entries = n_seven_entries + 1
+                export_entries =  push!(export_entries, 7)
+                export_entries_no_zero = push!(export_entries_no_zero, 7)
+            elseif exporter_i_map[1] == 1
+                n_no_entry = n_no_entry + 1
+                export_entries =  push!(export_entries, 0)
+            end
+        end
+
+        prop_two_entry[k] = n_two_entries/(prim.n_firms-n_no_entry)
+        prop_three_entry[k] = n_three_entries/(prim.n_firms-n_no_entry)
+        prop_four_entry[k] = n_four_entries/(prim.n_firms-n_no_entry)
+        prop_five_entry[k] = n_five_entries/(prim.n_firms-n_no_entry)
+        prop_six_entry[k] = n_six_entries/(prim.n_firms-n_no_entry)
+        prop_seven_entry[k] = n_seven_entries/(prim.n_firms-n_no_entry)
+        prop_one_entry[k] = n_one_entry/(prim.n_firms-n_no_entry)
+    end
+
+    prop_one_entry_mean = round(mean(prop_one_entry), digits = 4)
+    prop_two_entry_mean = round(mean(prop_two_entry), digits = 4)
+    prop_three_entry_mean = round(mean(prop_three_entry), digits = 4)
+    prop_four_entry_mean = round(mean(prop_four_entry), digits = 4)
+    prop_five_entry_mean = round(mean(prop_five_entry), digits = 4)
+
+    return prop_one_entry_mean, prop_two_entry_mean, prop_three_entry_mean, prop_four_entry_mean, prop_five_entry_mean
+end
+
+function dynamic_probit(prim::Primitives, firms_export_decisions, firms_capital_decisions, firms_sales)
+    panel = zeros(prim.n_firms*5, 22)
+    id = string.(zeros(prim.n_firms*5))
+    for k = 1:prim.n_sims
+        row = 1
+        for j = 1:prim.n_firms
+            for i = 8:12
+                # Panel will be: Firm Year Export Capital Sales Export Sales
+                id[row,1] = string(k,".",j,1)
+                panel[row,2] = i
+                panel[row,3] = firms_export_decisions[prim.n_periods_experiment-12+i,j,k]
+                panel[row,4] = log(firms_capital_decisions[prim.n_periods_experiment-12+i,j,k])
+                panel[row,5] = log(firms_sales[prim.n_periods_experiment-12+i,j,k])
+                panel[row,6] = firms_export_decisions[prim.n_periods_experiment-12+1,j,k]
+                panel[row,7] = mean(log.(firms_sales[prim.n_periods_experiment-12+1:prim.n_periods_experiment,j,k]))
+                if i > 1
+                    panel[row,8] = mean(log.(firms_sales[prim.n_periods_experiment-12+1:prim.n_periods_experiment-1,j,k]))
+                    panel[row,9] = mean(log.(firms_capital_decisions[prim.n_periods_experiment-12+1:prim.n_periods_experiment-1,j,k]))
+                    panel[row,10] = firms_export_decisions[prim.n_periods_experiment-12+i-1,j,k]
+                    panel[row,11] = firms_export_decisions[prim.n_periods_experiment-12+i-2,j,k]*(1-panel[row,10])
+                    panel[row,12] = firms_export_decisions[prim.n_periods_experiment-12+i-3,j,k]*(1-panel[row,11])*(1-panel[row,10])
+                    panel[row,13] = firms_export_decisions[prim.n_periods_experiment-12+i-4,j,k]*(1-panel[row,12])*(1-panel[row,11])*(1-panel[row,10])
+                    panel[row,14] = firms_export_decisions[prim.n_periods_experiment-12+i-5,j,k]*(1-panel[row,13])*(1-panel[row,12])*(1-panel[row,11])*(1-panel[row,10])
+                    panel[row,15] = firms_export_decisions[prim.n_periods_experiment-12+i-6,j,k]*(1-panel[row,14])*(1-panel[row,13])*(1-panel[row,12])*(1-panel[row,11])*(1-panel[row,10])
+                    panel[row,16] = firms_export_decisions[prim.n_periods_experiment-12+i-7,j,k]*(1-panel[row,15])*(1-panel[row,14])*(1-panel[row,13])*(1-panel[row,12])*(1-panel[row,11])*(1-panel[row,10])
+                    panel[row,17] = log(firms_capital_decisions[prim.n_periods_experiment-12+i-1,j,k])
+                    panel[row,18] = log(firms_sales[prim.n_periods_experiment-12+i-1,j,k])
+                end
+                panel[row,19] = i == 9
+                panel[row,20] = i == 10
+                panel[row,21] = i == 11
+                panel[row,22] = i == 12
+                row += 1
+            end
+        end
+        panel_DF = DataFrame(firm_id = id[:,1], year = panel[:,2], 
+                            export_choice = panel[:,3], log_capital_choice = panel[:,4],
+                            log_sales_all = panel[:,5], exported_first = panel[:,6],
+                            mean_log_sales_all = panel[:,7], mean_log_sales_all_lag = panel[:,8],
+                            mean_log_capital_choice_lag = panel[:,9], export_l1 = panel[:,10],
+                            export_l2 = panel[:,11], export_l3 = panel[:,12],
+                            export_l4 = panel[:,13], export_l5 = panel[:,14],
+                            export_l6 = panel[:,15], export_l7 = panel[:,16],
+                            log_capital_choice_lag = panel[:,17], log_sales_all_lag = panel[:,18],
+                            y9 = panel[:,19], y10 = panel[:,20], y11 = panel[:,21], y12 = panel[:,22])
+        pd_sim = xtset(panel_DF, :firm_id, :year)
+        m_probit = estimate_xtprobit(pd_sim, :export_choice, [:export_l1, :export_l2, :export_l3, :export_l4, :export_l5, :export_l6,
+                                                            :export_l7, :mean_log_sales_all_lag,
+                                                            :mean_log_capital_choice_lag, :log_capital_choice_lag, :log_sales_all_lag,
+                                                            :exported_first, :y9, :y10, :y11, :y12]; model=:re, maxiter=1000)
+        m_ame = marginal_effects(m_probit) 
+        MacroEconometricModels.report(m_probit)
+        MacroEconometricModels.report(m_ame)
+    end
 end
 
 function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve::Int64, filename::AbstractString)
@@ -1116,305 +1472,6 @@ function export_subsidy_experiment(prim::Primitives, res::Results)
 
     return firms_export_decisions_rand, firms_labor_decisions_rand, firms_capital_decisions_rand, firms_sales_non_exporter_rand, firms_sales_rand, firms_export_sales_rand, firms_export_decisions_targeted, firms_labor_decisions_targeted, firms_capital_decisions_targeted, firms_sales_non_exporter_targeted, firms_sales_targeted, firms_export_sales_targeted, productivity_exports
 
-end
-
-function data_sim_delta_nsims(prim::Primitives, res::Results)
-    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, C_star, tauchen_trans_Q, tauchen_trans_e, shocks_Q, shocks_ϵ, prev_ex_grid = res #unpack value function
-    @unpack C, w, r, nϵ, nQ, R, Q_grid, ϵ_grid, n_periods, n_firms, ρ_q, σ_q, θ, α_n, n_sims = prim #unpack primitives
-
-    firms_export_capital = ones(n_periods, n_firms, n_sims)
-    firms_export_decisions = zeros(n_periods, n_firms, n_sims)
-    firms_labor_decisions = ones(n_periods, n_firms, n_sims)
-    firms_capital_decisions = ones(n_periods, n_firms, n_sims)
-    firms_sales_non_exporter = zeros(n_periods, n_firms, n_sims)
-    firms_sales = zeros(n_periods, n_firms, n_sims)
-    firms_export_sales = zeros(n_periods, n_firms, n_sims)
-    
-    for k = 1:n_sims
-        Random.seed!(k)
-        for i = 2:n_periods
-
-            Q[i,k] = exp(ρ_q*log(Q[i-1,k]) + shocks_Q[i,k]*σ_q)
-            if Q[i,k] > 1.2
-                Q[i,k] == 1.2
-            elseif Q[i,k] < 0.8
-                Q[i,k] == 0.8
-            end
-            Q_index = findmin(abs.(Q[i,k] .- Q_grid))[2]
-
-            for j = 1:n_firms
-                
-                ϵ[i,j,k] = exp(ρ_e*log(ϵ[i-1,j,k]) + shocks_ϵ[i,j,k]*σ_e)
-                ϵ_index = findmin(abs.(ϵ[i,j,k] .- ϵ_grid))[2]
-                ϵ[i,j,k] = ϵ_grid[ϵ_index]
-                
-                firms_export_decisions[i,j,k] = ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                
-                if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
-                    firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
-                elseif firms_export_decisions[i,j,k] == 1
-                    firms_export_capital[i,j,k] = n_prev_ex
-                end
- 
-                firms_labor_decisions[i,j,k] = n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                firms_capital_decisions[i,j,k] = k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]               
-                firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-            end
-        end
-    end
-
-    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, ϵ
-
-end
-
-function data_sim_delta_nsims_prod(prim::Primitives, res::Results)
-    @unpack val_func, ex_func, n_func, k_func, n_prev_ex, ex_cap, ϵ, Q, FC_0, FC_1, σ_e, ρ_e, C_star, tauchen_trans_Q, tauchen_trans_e, prev_ex_grid = res #unpack value function
-    @unpack C, w, r, nϵ, nQ, R, Q_grid, ϵ_grid, n_periods, n_firms, ρ_q, σ_q, θ, α_n, n_sims = prim #unpack primitives
-
-    firms_export_capital = ones(n_periods, n_firms, n_sims)
-    firms_export_decisions = zeros(n_periods, n_firms, n_sims)
-    firms_labor_decisions = ones(n_periods, n_firms, n_sims)
-    firms_capital_decisions = ones(n_periods, n_firms, n_sims)
-    firms_sales_non_exporter = zeros(n_periods, n_firms, n_sims)
-    firms_sales = zeros(n_periods, n_firms, n_sims)
-    firms_export_sales = zeros(n_periods, n_firms, n_sims)
-    
-    for k = 1:n_sims
-        Random.seed!(k)
-        for i = 2:n_periods
-
-            Q[i,k] = exp(ρ_q*log(Q[i-1,k]) + rand(Normal(0, σ_q)))
-            if Q[i,k] > 1.2
-                Q[i,k] == 1.2
-            elseif Q[i,k] < 0.8
-                Q[i,k] == 0.8
-            end
-            Q_index = findmin(abs.(Q[i,k] .- Q_grid))[2]
-
-            for j = 1:n_firms
-                
-                ϵ[i,j,k] = exp(ρ_e*log(ϵ[i-1,j,k]) + rand(Normal(0,σ_e)))
-                ϵ_index = findmin(abs.(ϵ[i,j,k] .- ϵ_grid))[2]
-                ϵ[i,j,k] = ϵ_grid[ϵ_index]
-                
-                firms_export_decisions[i,j,k] = ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-
-                if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
-                    firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
-                elseif firms_export_decisions[i,j,k] == 1
-                    firms_export_capital[i,j,k] = n_prev_ex
-                end
- 
-                firms_labor_decisions[i,j,k] = n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                firms_capital_decisions[i,j,k] = k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]               
-                firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-            end
-        end
-    end
-
-    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, ϵ
-
-end
-
-function moment_calc_nsims(firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_domestic, firms_sales)
-    Random.seed!(17)
-    val_annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_export_change = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_sales_domestic = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_sales = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_production = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_sales_foreign = zeros(12, prim.n_firms, prim.n_sims)
-    annual_total_production = zeros(12)
-    annual_total_sales_foreign = zeros(12)
-    annual_total_sales = zeros(12)
-
-    for j = 1:12
-        val_annual_firms_export_decisions[j,:,:] = val_annual_firms_export_decisions[j,:,:] .+ firms_export_decisions[j+prim.n_periods-12,:,:]
-        annual_firms_sales_domestic[j,:,:] = annual_firms_sales_domestic[j,:,:] .+ firms_sales_domestic[j+prim.n_periods-12,:,:]
-        annual_firms_sales[j,:,:] = annual_firms_sales[j,:,:] .+ firms_sales[j+prim.n_periods-12,:,:]
-        annual_firms_production[j,:,:] = annual_firms_production[j,:,:] .+ res.ϵ[j+prim.n_periods-12,:,:].*firms_labor_decisions[j+prim.n_periods-12,:,:].^prim.α_n .*firms_capital_decisions[j+prim.n_periods-12,:,:].^(1-prim.α_n)
-        annual_firms_sales_foreign[j,:,:] = annual_firms_sales_foreign[j,:,:] .+ firms_sales[j+prim.n_periods-12,:,:] .- firms_sales_domestic[j+prim.n_periods-12,:,:]
-    end
-       
-    annual_firms_export_decisions = val_annual_firms_export_decisions .> 0
-    mean_annual_firms_sales_foreign = mean(annual_firms_sales_foreign, dims=3)
-    mean_annual_firms_sales = mean(annual_firms_sales, dims=3)
-    mean_annual_firms_production = mean(annual_firms_production, dims=3)
-
-    for i = 1:12
-        for j = 1:prim.n_firms
-            if i == 1
-                annual_total_sales_foreign[i] = annual_total_sales_foreign[i] + mean_annual_firms_sales_foreign[i,j]
-                annual_total_sales[i] = annual_total_sales[i] + mean_annual_firms_sales[i,j]
-                annual_total_production[i] = annual_total_production[i] + mean_annual_firms_production[i,j]
-            else
-                annual_total_sales_foreign[i] = annual_total_sales_foreign[i] + mean_annual_firms_sales_foreign[i,j] 
-                annual_total_sales[i] = annual_total_sales[i] + mean_annual_firms_sales[i,j]
-                annual_total_production[i] = annual_total_production[i] + mean_annual_firms_production[i,j]
-                annual_firms_export_change[i,j,:] = annual_firms_export_decisions[i,j,:] .- annual_firms_export_decisions[i-1,j,:]
-            end
-        end
-    end
-    annual_starter_rate = zeros(11, prim.n_sims)
-    annual_stopper_rate = zeros(11, prim.n_sims)
-    # Add 1 and 0 to export decisions once to make sure neither are ever 0
-    annual_firms_export_decisions = hcat(annual_firms_export_decisions, ones(12, 1, prim.n_sims), zeros(12, 1, prim.n_sims))
-    # Add 1 and -1 to export changes once to make sure neither are ever 0
-    annual_firms_export_change = hcat(annual_firms_export_change, ones(12, 1, prim.n_sims), -1 .* ones(12, 1, prim.n_sims)) 
-    exporter_i = countmap(annual_firms_export_change[1,:,:])
-    exporter_i_minus1 = countmap(annual_firms_export_decisions[1,:,:])
-
-    for i = 2:12
-        for k = 1:prim.n_sims
-            exporter_i_minus1 = countmap(annual_firms_export_decisions[i-1,:,k])
-            exporter_i = countmap(annual_firms_export_change[i,:,k])
-            
-            annual_starter_rate[i-1,k] = exporter_i[1]/exporter_i_minus1[0]
-            annual_stopper_rate[i-1,k] = exporter_i[-1]/exporter_i_minus1[1]
-        end
-    end
-
-    mean_annual_starter_rate = mean(annual_starter_rate, dims=2)
-    mean_annual_stopper_rate = mean(annual_stopper_rate, dims=2)
-
-    sales_today = mean(annual_firms_sales[2,:,:], dims=2)
-    sales_yesterday = mean(annual_firms_sales[1,:,:], dims=2)
-    year = []
-    firm_num = []
-    for i = 3:12
-        sales_today = [sales_today; mean(annual_firms_sales[i,:,:],dims=2)]
-        sales_yesterday = [sales_yesterday; mean(annual_firms_sales[i-1,:,:],dims=2)]
-    end
-
-    for i = 2:12
-        for j = 1:prim.n_firms
-            year = [year; string("Y",i)]
-            firm_num = [firm_num; string("F",j)]
-        end
-    end
-
-    sales_today_vec = copyto!(Vector{Float64}(undef,length(sales_today)),sales_today)
-    sales_yesterday_vec = copyto!(Vector{Float64}(undef,length(sales_yesterday)),sales_yesterday)
-
-    reg_DF = DataFrame(s_today = log.(sales_today_vec), s_yesterday = log.(sales_yesterday_vec), y = year, f = firm_num)
-    reg_results = reg(reg_DF, @formula(s_today ~ s_yesterday + fe(y) + fe(f)))
-
-    β_moment = coef(reg_results)
-
-    output = zeros(5)
-
-    output[1] = mean(annual_starter_rate)
-    output[2] = mean(annual_stopper_rate)
-    output[3] = mean(res.C_star ./ (res.Q[prim.n_periods-11:prim.n_periods,17] .^(-1*prim.θ)))
-    output[4] = std(log.(annual_firms_sales_domestic[:,:,20]))/mean(log.(annual_firms_sales_domestic[:,:,20]))
-    output[5] = β_moment[1]
-
-    #print(output)
-    #print("\n")
-    #print([prim.true_starter, prim.true_stopper, prim.true_ave_es_ratio, prim.true_coef_var, prim.true_a_exp_growth])
-    #print("\n")
-
-    return mean_annual_starter_rate, mean_annual_stopper_rate, annual_total_sales_foreign, annual_total_sales, annual_total_production, output
-end
-
-function reentry_calcs(firms_export_decisions, firms_sales_domestic, firms_sales)
-    val_annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_export_decisions = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_export_change = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_sales_domestic = zeros(12, prim.n_firms, prim.n_sims)
-    annual_firms_sales = zeros(12, prim.n_firms, prim.n_sims)
-    prop_one_entry = zeros(prim.n_sims)
-    prop_two_entry = zeros(prim.n_sims)
-    prop_three_entry = zeros(prim.n_sims)
-    prop_four_entry = zeros(prim.n_sims)
-    prop_five_entry = zeros(prim.n_sims)
-    prop_six_entry = zeros(prim.n_sims)
-    prop_seven_entry = zeros(prim.n_sims)
-
-    for j = 1:12
-        val_annual_firms_export_decisions[j,:,:] = val_annual_firms_export_decisions[j,:,:] .+ firms_export_decisions[j+100,:,:]
-        annual_firms_sales_domestic[j,:,:] = annual_firms_sales_domestic[j,:,:] .+ firms_sales_domestic[j+100,:,:]
-        annual_firms_sales[j,:,:] = annual_firms_sales[j,:,:] .+ firms_sales[j+100,:,:]
-    end
-
-    annual_firms_export_decisions = val_annual_firms_export_decisions .> 0
-    annual_firms_export_change[1,:,:] = copy(annual_firms_export_decisions[1,:,:])
-
-    for i = 2:12
-        for j = 1:prim.n_firms
-            annual_firms_export_change[i,j,:] = annual_firms_export_decisions[i,j,:] .- annual_firms_export_decisions[i-1,j,:]
-        end
-    end
-
-    for k = 1:prim.n_sims
-        n_no_entry = 0
-        n_one_entry = 0
-        n_two_entries = 0
-        n_three_entries = 0
-        n_four_entries = 0
-        n_five_entries = 0
-        n_six_entries = 0
-        n_seven_entries = 0
-        export_entries = Vector{Int64}()
-        export_entries_no_zero = Vector{Int64}()
-
-        for i = 1:prim.n_firms
-            exporter_i_map = countmap(vcat(annual_firms_export_change[:,i,k],1))
-            if exporter_i_map[1] == 2
-                n_one_entry = n_one_entry + 1
-                export_entries = push!(export_entries, 1)
-                export_entries_no_zero = push!(export_entries_no_zero, 1)
-            elseif exporter_i_map[1] == 3
-                n_two_entries = n_two_entries + 1
-                export_entries =  push!(export_entries, 2)
-                export_entries_no_zero = push!(export_entries_no_zero, 2)
-            elseif exporter_i_map[1] == 4
-                n_three_entries = n_three_entries + 1
-                export_entries =  push!(export_entries, 3)
-                export_entries_no_zero = push!(export_entries_no_zero, 3)
-            elseif exporter_i_map[1] == 5
-                n_four_entries = n_four_entries + 1
-                export_entries =  push!(export_entries, 4)
-                export_entries_no_zero = push!(export_entries_no_zero, 4)
-            elseif exporter_i_map[1] == 6
-                n_five_entries = n_five_entries + 1
-                export_entries =  push!(export_entries, 5)
-                export_entries_no_zero = push!(export_entries_no_zero, 5)
-            elseif exporter_i_map[1] == 7
-                n_six_entries = n_six_entries + 1
-                export_entries =  push!(export_entries, 6)
-                export_entries_no_zero = push!(export_entries_no_zero, 6)
-            elseif exporter_i_map[1] == 8
-                n_seven_entries = n_seven_entries + 1
-                export_entries =  push!(export_entries, 7)
-                export_entries_no_zero = push!(export_entries_no_zero, 7)
-            elseif exporter_i_map[1] == 1
-                n_no_entry = n_no_entry + 1
-                export_entries =  push!(export_entries, 0)
-            end
-        end
-
-        prop_two_entry[k] = n_two_entries/(prim.n_firms-n_no_entry)
-        prop_three_entry[k] = n_three_entries/(prim.n_firms-n_no_entry)
-        prop_four_entry[k] = n_four_entries/(prim.n_firms-n_no_entry)
-        prop_five_entry[k] = n_five_entries/(prim.n_firms-n_no_entry)
-        prop_six_entry[k] = n_six_entries/(prim.n_firms-n_no_entry)
-        prop_seven_entry[k] = n_seven_entries/(prim.n_firms-n_no_entry)
-        prop_one_entry[k] = n_one_entry/(prim.n_firms-n_no_entry)
-    end
-
-    prop_one_entry_mean = round(mean(prop_one_entry), digits = 4)
-    prop_two_entry_mean = round(mean(prop_two_entry), digits = 4)
-    prop_three_entry_mean = round(mean(prop_three_entry), digits = 4)
-    prop_four_entry_mean = round(mean(prop_four_entry), digits = 4)
-    prop_five_entry_mean = round(mean(prop_five_entry), digits = 4)
-
-    return prop_one_entry_mean, prop_two_entry_mean, prop_three_entry_mean, prop_four_entry_mean, prop_five_entry_mean
 end
 
 #Bellman Operator
