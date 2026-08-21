@@ -145,7 +145,7 @@ foreign_sales_all = vcat(foreign_sales_Base_scaled, foreign_sales_Delta_scaled)
 groups = repeat(["δ=1", "Export Capital"], inner = 7)
 periods_full = repeat(-1:5)#, outer=2)
 periods_double = repeat(-1:5, outer=2)
-plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], dpi=300)
+plot(periods_full, [foreign_sales_Base_scaled foreign_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Scaled Export Revenues", dpi=300)
 savefig("./model/images/foreign_sales_compare_Q_annual.png")
 
 ###########################################################
