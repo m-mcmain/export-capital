@@ -40,10 +40,10 @@ firms_capital_decisions_Base = ones(prim.n_periods_experiment, prim.n_firms, pri
 firms_sales_domestic_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sales_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_export_sales_Base = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
-@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base, firms_export_sales_Base = tariff_experiment(prim, res, 10, 0, filename)
-#Start_Base, Stop_Base, Foreign_Sales_Base, Sales_Base, Production_Base, output_Base = moment_calc_nsims(firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base)
-#print(median(firms_sales_Base[prim.n_periods-7:prim.n_periods,:,:].-firms_sales_domestic_Base[prim.n_periods-7:prim.n_periods,:,:]))
-#print("\\")
+@time firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base, firms_export_sales_Base = tariff_experiment(prim, res, 10, 1, filename)
+Start_Base, Stop_Base, Foreign_Sales_Base, Sales_Base, Production_Base, output_Base = moment_calc_nsims(firms_export_decisions_Base, firms_labor_decisions_Base, firms_capital_decisions_Base, firms_sales_domestic_Base, firms_sales_Base)
+print(median(firms_sales_Base[prim.n_periods-7:prim.n_periods,:,:].-firms_sales_domestic_Base[prim.n_periods-7:prim.n_periods,:,:]))
+print("\\")
 
 filename = "delta_annual"
 prim, res = Initialize(delta) #initialize primitive and results structs for base model
@@ -89,9 +89,9 @@ export_sales_Delta_scaled = firms_export_sales_Delta_sumAvg[5:12] ./ firms_expor
 
 export_sales_all = vcat(export_sales_Base_scaled, export_sales_Delta_scaled)
 groups = repeat(["Sunk Cost", "+ Export Capital"], inner = 5)
-periods_full = repeat(-1:6)#, outer=2)
+periods_full = repeat(-1:5)#, outer=2)
 periods_double = repeat(-1:5, outer=2)
-plot(periods_full, [export_sales_Base_scaled export_sales_Delta_scaled], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Scaled Export Revenues", xlabel="Period", dpi=300)
+plot(periods_full, [export_sales_Base_scaled[1:7] export_sales_Delta_scaled[1:7]], linewidth=3, label=["Sunk Cost" "+ Export Capital"], ylabel="Scaled Export Revenues", xlabel="Period", dpi=300)
 savefig("./model/images/foreign_sales_compare_t_annual.png")
 
 ############################################################

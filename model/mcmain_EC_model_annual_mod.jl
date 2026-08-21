@@ -1037,7 +1037,7 @@ end
 function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve::Int64, filename::AbstractString)
     Random.seed!(17)
     @unpack Q_grid, ϵ_grid, n_periods_experiment, n_firms, n_sims, ρ_q, σ_q = prim #unpack primitives
-    @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e = res #unpack results
+    @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e, shocks_Q, shocks_ϵ = res #unpack results
 
     if solve == 1
         res.τ = 0/100
@@ -1097,7 +1097,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
         Random.seed!(k)
         for i = 2:n_periods_experiment
 
-            Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + rand(Normal(0, σ_q)))
+            Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + shocks_Q[i,k]*σ_q)
             if Q_experiment[i] > 3
                 Q_experiment[i] == 3
             end
@@ -1106,7 +1106,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
 
             for j = 1:n_firms
                 
-                ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
+                ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + shocks_ϵ[i,j,k]*σ_e)
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 ϵ_experiment[i,j] = ϵ_grid[ϵ_index]
 
@@ -1148,7 +1148,7 @@ end
 function Q_experiment(prim::Primitives, res::Results, filename::AbstractString)
     Random.seed!(17)
     @unpack Q_grid, ϵ_grid, n_periods_experiment, n_firms, n_sims, ρ_q, σ_q = prim #unpack primitives
-    @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e = res #unpack results
+    @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e, shocks_Q, shocks_ϵ = res #unpack results
 
     normal_val_func = load_object("./model/objects/normal_val_func_$filename.jld2")
     normal_ex_func = load_object("./model/objects/normal_ex_func_$filename.jld2")
@@ -1193,7 +1193,7 @@ function Q_experiment(prim::Primitives, res::Results, filename::AbstractString)
 
             for j = 1:n_firms
                 
-                ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
+                ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + shocks_ϵ[i,j,k]*σ_e)
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 
                 firms_export_decisions[i,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
@@ -1219,7 +1219,7 @@ end
 function export_experience_experiment(prim::Primitives, res::Results, filename::AbstractString)
     Random.seed!(17)
     @unpack Q_grid, ϵ_grid, n_periods_experiment, n_firms, n_sims, ρ_q, σ_q = prim #unpack primitives
-    @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e = res #unpack results
+    @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e, shocks_Q, shocks_ϵ = res #unpack results
 
     normal_val_func = load_object("./model/objects/normal_val_func_$filename.jld2")
     normal_ex_func = load_object("./model/objects/normal_ex_func_$filename.jld2")
@@ -1238,7 +1238,7 @@ function export_experience_experiment(prim::Primitives, res::Results, filename::
         Random.seed!(k)
         for i = 2:n_periods_experiment
             
-            Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + rand(Normal(0, σ_q)))
+            Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + shocks_Q[i,k]*σ_q)
             if Q_experiment[i] > 3
                 Q_experiment[i] == 3
             end
@@ -1247,7 +1247,7 @@ function export_experience_experiment(prim::Primitives, res::Results, filename::
 
             for j = 1:n_firms
                 
-                ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
+                ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + shocks_ϵ[i,j,k]*σ_e)
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 ϵ_experiment[i,j] = ϵ_grid[ϵ_index]
                 
@@ -1289,7 +1289,7 @@ function export_subsidy_experiment(prim::Primitives, res::Results)
     V_iterate_subsidy(prim, res, subsidy_rate)
 
     @unpack Q_grid, ϵ_grid, n_periods_experiment, n_firms, n_sims, ρ_q, σ_q = prim #unpack primitives
-    @unpack Q_experiment, ϵ_experiment, n_prev_ex, prev_ex_grid, ex_cap, ρ_e, σ_e, FC_0, FC_1 = res #unpack results
+    @unpack Q_experiment, ϵ_experiment, n_prev_ex, prev_ex_grid, ex_cap, ρ_e, σ_e, FC_0, FC_1, shocks_Q, shocks_ϵ = res #unpack results
 
     firms_export_capital_rand = ones(n_periods_experiment, n_firms, n_sims)
     firms_export_decisions_rand = zeros(n_periods_experiment, n_firms, n_sims)
@@ -1320,7 +1320,7 @@ function export_subsidy_experiment(prim::Primitives, res::Results)
         
         for i = 2:n_periods_experiment
             
-            Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + rand(Normal(0, σ_q)))
+            Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + shocks_Q[i,k]*σ_q)
             if Q_experiment[i] > 3
                 Q_experiment[i] == 3
             end
@@ -1329,7 +1329,7 @@ function export_subsidy_experiment(prim::Primitives, res::Results)
             # Update ϵ's first:
             for j = 1:n_firms
                 # Update ϵ for non-subsidy year
-                ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + rand(Normal(0,σ_e)))
+                ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + shocks_ϵ[i,j,k]*σ_e)
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 ϵ_experiment[i,j] = ϵ_grid[ϵ_index]
             end
