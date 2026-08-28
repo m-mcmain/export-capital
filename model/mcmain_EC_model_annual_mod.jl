@@ -129,11 +129,11 @@ function Initialize(base::Int64)
         C_star = 0.16333309353877032
         ρ_e =  0.5717084452766545
         σ_e = 0.05447497950369329
-        FC_0 = 2.8967193278506573 # Fixed Cost based on Last Export
-        FC_1 =  0.5160469782313699 # Fixed Cost of reentry
-        δ = 0.03379118541575009 # Export Knowledge Deprication guess 
-        α_d = 0.03897024180506729 # Export Capital Decay Intercept Guess 
-        β_d = 0.007706900420490436 # Export Capital Decay coefficient Guess       
+        FC_0 = 2.78587983396864 # Fixed Cost based on Last Export
+        FC_1 =  0.4945699355632398 # Fixed Cost of reentry
+        δ = 0.02418637762166339 # Export Knowledge Deprication guess 
+        α_d = 0.02418637762166339 # Export Capital Decay Intercept Guess 
+        β_d = 0.009981563333990941 # Export Capital Decay coefficient Guess       
         β_sq_d = 0.0 # Export Capital Decay squared coefficient Guess    
     end
 
@@ -156,10 +156,10 @@ function Initialize(base::Int64)
     tauchen_res_e = QuantEcon.tauchen(prim.nϵ, ρ_e, σ_e)
     tauchen_trans_e = tauchen_res_e.p
 
-   # Generate the random shocks for Q and ϵ
-   shocks_Q = zeros(prim.n_periods, prim.n_sims)
-   shocks_ϵ = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
-   for k = 1:prim.n_sims
+    # Generate the random shocks for Q and ϵ
+    shocks_Q = zeros(prim.n_periods, prim.n_sims)
+    shocks_ϵ = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
+    for k = 1:prim.n_sims
         Random.seed!(k)
         for i = 2:prim.n_periods
             shocks_Q[i,k] = rand(Normal(0, 1))
@@ -702,6 +702,7 @@ function data_sim_delta_nsims(prim::Primitives, res::Results)
                 Q[i,k] == 0.8
             end
             Q_index = findmin(abs.(Q[i,k] .- Q_grid))[2]
+            Q[i,k] = Q_grid[Q_index]
 
             for j = 1:n_firms
                 
@@ -726,7 +727,7 @@ function data_sim_delta_nsims(prim::Primitives, res::Results)
         end
     end
 
-    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, ϵ
+    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, ϵ, Q
 
 end
 
@@ -746,17 +747,18 @@ function data_sim_delta_nsims_prod(prim::Primitives, res::Results)
         Random.seed!(k)
         for i = 2:n_periods
 
-            Q[i,k] = exp(ρ_q*log(Q[i-1,k]) + rand(Normal(0, σ_q)))
+            Q[i,k] = exp(ρ_q*log(Q[i-1,k]) + shocks_Q[i,k]*σ_q)
             if Q[i,k] > 1.2
                 Q[i,k] == 1.2
             elseif Q[i,k] < 0.8
                 Q[i,k] == 0.8
             end
             Q_index = findmin(abs.(Q[i,k] .- Q_grid))[2]
+            Q[i,k] = Q_grid[Q_index]
 
             for j = 1:n_firms
                 
-                ϵ[i,j,k] = exp(ρ_e*log(ϵ[i-1,j,k]) + rand(Normal(0,σ_e)))
+                ϵ[i,j,k] = exp(ρ_e*log(ϵ[i-1,j,k]) + shocks_ϵ[i,j,k]*σ_e)
                 ϵ_index = findmin(abs.(ϵ[i,j,k] .- ϵ_grid))[2]
                 ϵ[i,j,k] = ϵ_grid[ϵ_index]
                 
@@ -777,7 +779,7 @@ function data_sim_delta_nsims_prod(prim::Primitives, res::Results)
         end
     end
 
-    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, ϵ
+    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, ϵ, Q
 
 end
 

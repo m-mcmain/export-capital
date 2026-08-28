@@ -103,6 +103,7 @@ print(rand_results)
 # Initialize params and data
 prim, res = Initialize(3)
 panel = zeros(prim.n_sims*prim.n_firms*12, 7)
+panel_RER = zeros(prim.n_sims*12,1)
 firm_export_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_labor_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_capital_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
@@ -110,10 +111,11 @@ firm_sales_domestic = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_all = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firms_export_sales = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 productivities = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
+real_exchange_rates = zeros(prim.n_periods, prim.n_sims)
 # Solve the model with the parameters
 Solve_model(prim,res)
 # Simulate the data
-firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims(prim, res)
+firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities, real_exchange_rates = data_sim_delta_nsims(prim, res)
 
 ###
 # Create %Δ Plots for Delta
@@ -276,9 +278,10 @@ frac_immediate_reentry_delta = immediate_reentries./exits_all_noEndYears
 plot(frac_immediate_reentry_delta)
 
 row = 1
+row_RER = 1
 for k = 1:prim.n_sims
-    for j = 1:prim.n_firms
-        for i = 1:12
+    for  i = 1:12
+        for j = 1:prim.n_firms
             # Panel will be: Firm Year Export Capital Sales Export Sales
             panel[row,1] = parse(Float32, string(k,".",j,1))
             panel[row,2] = i
@@ -289,24 +292,29 @@ for k = 1:prim.n_sims
             panel[row,7] = productivities[prim.n_periods_experiment-12+i,j,k]
             row += 1
         end
+        panel_RER[row_RER,1] = real_exchange_rates[prim.n_periods_experiment-12+i,k]
+        row_RER += 1
     end
 end
 writedlm("./data/Panel_Sim_delta.csv", panel, ",")
+writedlm("./data/Panel_RER_delta.csv", panel_RER, ",")
 ##############################################################
 #####         Output Simulated Sunk Cost Panel            ####
 ##############################################################
 prim, res = Initialize(1)
 panel = zeros(prim.n_sims*prim.n_firms*12, 7)
+panel_RER = zeros(prim.n_sims*12,1)
 firm_export_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_labor_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_capital_choices = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_domestic = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 firm_sales_all = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
 productivities = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
+real_exchange_rates = zeros(prim.n_periods, prim.n_sims)
 # Solve the model with the parameters
 Solve_model(prim,res)
 # Simulate the data
-firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities = data_sim_delta_nsims_prod(prim, res)
+firm_export_choices, firm_labor_choices, firm_capital_choices, firm_sales_domestic, firm_sales_all, firms_export_sales, productivities, real_exchange_rates = data_sim_delta_nsims(prim, res)
 
 ###
 # Create %Δ Plots for Canonical
@@ -468,22 +476,26 @@ frac_immediate_reentry_Base = immediate_reentries./exits_all_noEndYears
 plot(frac_immediate_reentry_Base)
 
 row = 1
+row_RER = 1
 for k = 1:prim.n_sims
-    for j = 1:prim.n_firms
-        for i = 1:12
-            # Panel will be: Firm Year Export Capital Sales Export Sales
-            panel[row,1] = parse(Float32, string(k,".",j,1))
-            panel[row,2] = i
-            panel[row,3] = firm_export_choices[100+i,j,k]
-            panel[row,4] = firm_capital_choices[100+i,j,k]
-            panel[row,5] = firm_sales_all[100+i,j,k]
-            panel[row,6] = firms_export_sales[100+i,j,k]
-            panel[row,7] = productivities[100+i,j,k]
-            row += 1
-        end
+    for i = 1:12
+       for j = 1:prim.n_firms
+           # Panel will be: Firm Year Export Capital Sales Export Sales
+           panel[row,1] = parse(Float32, string(k,".",j,1))
+           panel[row,2] = i
+           panel[row,3] = firm_export_choices[prim.n_periods_experiment-12+i,j,k]
+           panel[row,4] = firm_capital_choices[prim.n_periods_experiment-12+i,j,k]
+           panel[row,5] = firm_sales_all[prim.n_periods_experiment-12+i,j,k]
+           panel[row,6] = firms_export_sales[prim.n_periods_experiment-12+i,j,k]
+           panel[row,7] = productivities[prim.n_periods_experiment-12+i,j,k]
+           row += 1
+       end
+        panel_RER[row_RER,1] = real_exchange_rates[prim.n_periods_experiment-12+i,k]
+        row_RER += 1
     end
 end
 writedlm("./data/Panel_Sim_noDelta.csv", panel, ",")
+writedlm("./data/Panel_RER_noDelta.csv", panel_RER, ",")
 #######################################
 # Export Concentration Export Capital:#
 #######################################
