@@ -102,8 +102,8 @@ function Initialize(base::Int64)
     ex_cap = Array{Float64}(zeros(prim.n_periods, prim.n_firms)) # initial export capital
     ϵ = Array{Float64}(ones(prim.n_periods, prim.n_firms, prim.n_sims)) # initial ϵ
     Q = Array{Float64}(ones(prim.n_periods, prim.n_sims)) # initial Q
-    ϵ_experiment = Array{Float64}(ones(prim.n_periods_experiment, prim.n_firms)) # initial ϵ
-    Q_experiment = Array{Float64}(ones(prim.n_periods_experiment)) # initial Q
+    ϵ_experiment = Array{Float64}(ones(prim.n_periods_experiment+100, prim.n_firms)) # initial ϵ
+    Q_experiment = Array{Float64}(ones(prim.n_periods_experiment+100)) # initial Q
     τ = 0.0 # initial τ (no tariffs)
     if base == 1
         C_star = 0.14822662063483324
@@ -157,11 +157,21 @@ function Initialize(base::Int64)
     tauchen_trans_e = tauchen_res_e.p
 
     # Generate the random shocks for Q and ϵ
-    shocks_Q = zeros(prim.n_periods, prim.n_sims)
-    shocks_ϵ = zeros(prim.n_periods, prim.n_firms, prim.n_sims)
+    shocks_Q = zeros(prim.n_periods+100, prim.n_sims)
+    shocks_ϵ = zeros(prim.n_periods+100, prim.n_firms, prim.n_sims)
     for k = 1:prim.n_sims
         Random.seed!(k)
         for i = 2:prim.n_periods
+            shocks_Q[i,k] = rand(Normal(0, 1))
+            for j = 1:prim.n_firms
+                shocks_ϵ[i,j,k] = rand(Normal(0,1))
+            end
+        end
+    end
+
+    for k = 1:prim.n_sims
+        Random.seed!(k)
+        for i = prim.n_periods+1:prim.n_periods+100
             shocks_Q[i,k] = rand(Normal(0, 1))
             for j = 1:prim.n_firms
                 shocks_ϵ[i,j,k] = rand(Normal(0,1))
@@ -1094,6 +1104,8 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
     firms_sales_non_exporter = zeros(n_periods_experiment, n_firms, n_sims)
     firms_sales = zeros(n_periods_experiment, n_firms, n_sims)
     firms_export_sales = zeros(n_periods_experiment, n_firms, n_sims)
+    firms_sunk_cost_spending = zeros(n_periods_experiment, n_firms, n_sims)
+    firms_profits = zeros(n_periods_experiment, n_firms, n_sims)
 
     for k = 1:n_sims
         Random.seed!(k)
@@ -1112,7 +1124,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 ϵ_experiment[i,j] = ϵ_grid[ϵ_index]
 
-                if i == prim.n_periods-6
+                if i == prim.n_periods-11
                     firms_export_decisions[i,j,k] = tariff_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                 else
                     firms_export_decisions[i,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
@@ -1122,9 +1134,10 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
                     firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
                 elseif firms_export_decisions[i,j,k] == 1
                     firms_export_capital[i,j,k] = n_prev_ex
+                    firms_sunk_cost_spending[i,j,k] = (1-res.prev_ex_grid[floor(Int, firms_export_capital[i-1,j,k])])*res.FC_0
                 end
                 
-                if i == prim.n_periods-6
+                if i == prim.n_periods-11
                     res.τ = tariff/100
                     firms_labor_decisions[i,j,k] = tariff_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                     firms_capital_decisions[i,j,k] = tariff_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
@@ -1138,12 +1151,14 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
                     firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
                     firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
                     firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                end
+                end    
+                # x[1] is labor choice, x[2] is capital, x[3] is export decision, x[4] is productivity, and x[5] is export capital, x[6] is Q, x[7] is FC_0, x[8] is FC_1
+                firms_profits[i,j,k] = profit_func(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] res.prev_ex_grid[floor(Int, firms_export_capital[i-1,j,k])] Q_grid[Q_index] res.FC_0 res.FC_1])
             end
         end
     end
 
-    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales
+    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, firms_sunk_cost_spending, firms_profits
 
 end
 
@@ -1152,10 +1167,12 @@ function Q_experiment(prim::Primitives, res::Results, filename::AbstractString)
     @unpack Q_grid, ϵ_grid, n_periods_experiment, n_firms, n_sims, ρ_q, σ_q = prim #unpack primitives
     @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e, shocks_Q, shocks_ϵ = res #unpack results
 
-    normal_val_func = load_object("./model/objects/normal_val_func_$filename.jld2")
-    normal_ex_func = load_object("./model/objects/normal_ex_func_$filename.jld2")
-    normal_n_func = load_object("./model/objects/normal_n_func_$filename.jld2")
-    normal_k_func = load_object("./model/objects/normal_k_func_$filename.jld2")
+    Solve_model(prim, res)
+
+    normal_val_func = res.val_func
+    normal_ex_func = res.ex_func
+    normal_n_func = res.n_func
+    normal_k_func = res.k_func
 
     firms_export_capital = ones(n_periods_experiment, n_firms, n_sims)
     firms_export_decisions = zeros(n_periods_experiment, n_firms, n_sims)
@@ -1169,29 +1186,24 @@ function Q_experiment(prim::Primitives, res::Results, filename::AbstractString)
         Random.seed!(k)
         for i = 2:n_periods_experiment
 
-            # if i < 105 || i > 107
-            #     Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + rand(Normal(0, σ_q)))
-            #     if Q_experiment[i] > 3
-            #         Q_experiment[i] == 3
-            #     end
-            #     Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
-            #     Q_experiment[i] = Q_grid[Q_index]
-            # elseif i == 105 || i == 107
-            #     Q_experiment[i] = 1
-            #     Q_index = 3
-            # elseif i == 106
-            #     Q_experiment[i] = 0.9
-            #     Q_index = 2
-            # end
+            if i != prim.n_periods-6
+                Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + shocks_Q[i,k]*σ_q)
+                Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
+                Q_experiment[i] = Q_grid[Q_index]
+            else
+                Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) - 0.1)
+                Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
+                Q_experiment[i] = Q_grid[Q_index]
+            end
 
             # Fix Q=1 except for one period it falls to 0.9
-            if i == prim.n_periods-6
-                Q_experiment[i] = 0.9
-                Q_index = 2
-            else
-                Q_experiment[i] = 1
-                Q_index = 3
-            end
+            # if i == prim.n_periods-6
+            #     Q_experiment[i] = 0.9
+            #     Q_index = 2
+            # else
+            #     Q_experiment[i] = 1
+            #     Q_index = 3
+            # end
 
             for j = 1:n_firms
                 
@@ -1228,17 +1240,17 @@ function export_experience_experiment(prim::Primitives, res::Results, filename::
     normal_n_func = load_object("./model/objects/normal_n_func_$filename.jld2")
     normal_k_func = load_object("./model/objects/normal_k_func_$filename.jld2")
 
-    firms_export_capital = ones(n_periods_experiment, n_firms, n_sims)
-    firms_export_decisions = zeros(n_periods_experiment, n_firms, n_sims)
-    firms_labor_decisions = ones(n_periods_experiment, n_firms, n_sims)
-    firms_capital_decisions = ones(n_periods_experiment, n_firms, n_sims)
-    firms_sales_non_exporter = zeros(n_periods_experiment, n_firms, n_sims)
-    firms_sales = zeros(n_periods_experiment, n_firms, n_sims)
-    firms_export_sales = zeros(n_periods_experiment, n_firms, n_sims)
+    firms_export_capital = ones(n_periods_experiment+100, n_firms, n_sims)
+    firms_export_decisions = zeros(n_periods_experiment+100, n_firms, n_sims)
+    firms_labor_decisions = ones(n_periods_experiment+100, n_firms, n_sims)
+    firms_capital_decisions = ones(n_periods_experiment+100, n_firms, n_sims)
+    firms_sales_non_exporter = zeros(n_periods_experiment+100, n_firms, n_sims)
+    firms_sales = zeros(n_periods_experiment+100, n_firms, n_sims)
+    firms_export_sales = zeros(n_periods_experiment+100, n_firms, n_sims)
 
     for k = 1:n_sims
         Random.seed!(k)
-        for i = 2:n_periods_experiment
+        for i = 2:n_periods_experiment+100
             
             Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + shocks_Q[i,k]*σ_q)
             if Q_experiment[i] > 3
@@ -1266,7 +1278,7 @@ function export_experience_experiment(prim::Primitives, res::Results, filename::
                 firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
 
                 # After choices are made, export capital of everyone decays to 0 in period 106 and we continue
-                if i == prim.n_periods-6
+                if i == prim.n_periods-12
                     firms_export_capital[i,j,k] = 1
                 end
             end
