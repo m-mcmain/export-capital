@@ -1158,7 +1158,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
         end
     end
 
-    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, firms_sunk_cost_spending, firms_profits
+    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, firms_sunk_cost_spending, firms_profits, firms_export_capital
 
 end
 

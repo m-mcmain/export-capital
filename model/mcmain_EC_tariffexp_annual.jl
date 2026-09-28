@@ -56,13 +56,15 @@ firms_sales_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_export_sales_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_sunk_cost_spending_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
 firms_profits_Delta = zeros(prim.n_periods_experiment, prim.n_firms, prim.n_sims)
-@time firms_export_decisions_Delta_noT, firms_labor_decisions_Delta_noT, firms_capital_decisions_Delta_noT, firms_sales_domestic_Delta_noT, firms_sales_Delta_noT, firms_export_sales_Delta_noT, firms_sunk_cost_spending_Delta_noT, firms_profits_Delta_noT = tariff_experiment(prim, res, 0, 1, filename)
-@time firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta, firms_export_sales_Delta, firms_sunk_cost_spending_Delta, firms_profits_Delta = tariff_experiment(prim, res, 10, 1, filename)
+@time firms_export_decisions_Delta_noT, firms_labor_decisions_Delta_noT, firms_capital_decisions_Delta_noT, firms_sales_domestic_Delta_noT, firms_sales_Delta_noT, firms_export_sales_Delta_noT, firms_sunk_cost_spending_Delta_noT, firms_profits_Delta_noT, firms_export_capital_Delta_noT = tariff_experiment(prim, res, 0, 1, filename)
+@time firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta, firms_export_sales_Delta, firms_sunk_cost_spending_Delta, firms_profits_Delta, firms_export_capital_Delta = tariff_experiment(prim, res, 10, 1, filename)
 # Start_Delta, Stop_Delta, Foreign_Sales_Delta, Sales_Delta, Production_Delta, output_Delta = moment_calc_nsims(firms_export_decisions_Delta, firms_labor_decisions_Delta, firms_capital_decisions_Delta, firms_sales_domestic_Delta, firms_sales_Delta)
 # print(median(firms_sales_Base[prim.n_periods-7:prim.n_periods,:,:].-firms_sales_domestic_Base[prim.n_periods-7:prim.n_periods,:,:]))
 # print("\\")
 
 noT_exporting_shock = (firms_export_decisions_Delta_noT .- firms_export_decisions_Delta)[prim.n_periods-11,:,:] .> 0
+sum(mean(noT_exporting_shock,dims=2))
+mean(firms_export_decisions_Delta_noT[prim.n_periods-11,:,:] .> 0)
 noT_exporting_preshock = firms_export_decisions_Delta_noT[prim.n_periods-12,:,:] .== 1 
 T_exporting_preshock = firms_export_decisions_Delta[prim.n_periods-12,:,:] .== 1 
 T_exporting_postshock = firms_export_decisions_Delta[prim.n_periods-10,:,:] .== 1
@@ -72,6 +74,7 @@ exiters_τ = noT_exporting_shock .* noT_exporting_preshock
 sum(mean(exiters_τ,dims=2))
 non_entrants_τ = BitMatrix(noT_exporting_shock .* (1 .- noT_exporting_preshock))
 sum(mean(non_entrants_τ,dims=2))
+median_firm_sales = median(firms_sales_Delta_noT[prim.n_periods-11,:,:])
 
 # annual_sunk_cost_spending_diff = mean(sum(firms_sunk_cost_spending_Delta_noT[prim.n_periods-12:prim.n_periods,:,:], dims = 2) .- sum(firms_sunk_cost_spending_Delta[prim.n_periods-12:prim.n_periods,:,:], dims = 2), dims=3)
 # average_annual_sunk_cost_spending_Delta = mean(sum(firms_sunk_cost_spending_Delta[prim.n_periods-12:prim.n_periods,:,:], dims = 2), dims=3)[1,1,1]
@@ -87,13 +90,21 @@ annual_profits_diff_reentrants = sum(firms_profits_Delta_noT[prim.n_periods-12:p
 plot(periods_diff, annual_profits_diff_reentrants[1:12]./sum(firms_profits_Delta_noT[prim.n_periods-11:prim.n_periods,re_entrants_τ], dims = 2), linewidth = 3, ylabel="Fraction of No Tax Profits", xlabel = "Year", label="", dpi=300)
 savefig("./model/images/profits_compare_t_annual_reentrants.png")
 
+annual_sunk_cost_diff_reentrants = sum(firms_sunk_cost_spending_Delta[prim.n_periods-12:prim.n_periods,re_entrants_τ], dims = 2) .- sum(firms_sunk_cost_spending_Delta_noT[prim.n_periods-12:prim.n_periods,re_entrants_τ], dims = 2)
+plot(periods_diff, annual_sunk_cost_diff_reentrants[1:12]./(1000*prim.w), linewidth = 3, ylabel="Labor Hours", xlabel = "Year", label="", dpi=300)
+savefig("./model/images/sunk_cost_compare_t_annual_reentrants.png")
+
 annual_profits_diff_exiters = sum(firms_profits_Delta_noT[prim.n_periods-12:prim.n_periods,exiters_τ], dims = 2) .- sum(firms_profits_Delta[prim.n_periods-12:prim.n_periods,exiters_τ], dims = 2)
 plot(periods_diff, annual_profits_diff_exiters[1:12]./sum(firms_profits_Delta_noT[prim.n_periods-11:prim.n_periods,exiters_τ], dims = 2), linewidth = 3, ylabel="Fraction of No Tax Profits", xlabel = "Year", label="", dpi=300)
 savefig("./model/images/profits_compare_t_annual_exiters.png")
 
+annual_sunk_cost_diff_exiters = sum(firms_sunk_cost_spending_Delta[prim.n_periods-12:prim.n_periods,exiters_τ], dims = 2) .- sum(firms_sunk_cost_spending_Delta_noT[prim.n_periods-12:prim.n_periods,exiters_τ], dims = 2)
+plot(periods_diff, annual_sunk_cost_diff_exiters[1:12]./(1000*prim.w), linewidth = 3, ylabel="Labor Hours", xlabel = "Year", label="", dpi=300)
+savefig("./model/images/sunk_cost_compare_t_annual_exiters.png")
+
 annual_profits_diff_non_entrants = sum(firms_profits_Delta_noT[prim.n_periods-12:prim.n_periods,non_entrants_τ], dims = 2) .- sum(firms_profits_Delta[prim.n_periods-12:prim.n_periods,non_entrants_τ], dims = 2)
 plot(periods_diff, annual_profits_diff_non_entrants[1:12]./sum(firms_profits_Delta_noT[prim.n_periods-11:prim.n_periods,non_entrants_τ], dims = 2), linewidth = 3, ylabel="Fraction of No Tax Profits", xlabel = "Year", label="", dpi=300)
-savefig("./model/images/profits_compare_t_annual_exiters.png")
+savefig("./model/images/profits_compare_t_annual_non_entrants.png")
 
 periods_diff_lim = range(1,10,length=10)
 plot(periods_diff_lim, annual_profits_diff[3:12], label="", dpi=300)
