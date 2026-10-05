@@ -285,7 +285,7 @@ end
 function MSM_delta_func_first3(x)
     print(x)
     print("\n")
-    model = 1
+    model = 3
     prim, res = Initialize(model) #initialize primitive and results structs
 
     if model == 3

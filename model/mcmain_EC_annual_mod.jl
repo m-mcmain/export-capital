@@ -83,11 +83,11 @@ for i = 2:5
     prim, res = Initialize(model)
     println("Beginning of Iteration ", i, ":")
     # random_x0 = [runif[4] runif[5]*0.5 runif[1]*20+5 runif[2]*2 0.23 0.71 0.18]
-    random_x0 = [0.03897024180506729 0.007706900420490436 2.8967193278506573 0.5160469782313699]
-    # random_x0 = [runif[1]*0.2 runif[2]*0.1 runif[3]*5 runif[4]]
+    # random_x0 = [0.03897024180506729 0.007706900420490436 2.8967193278506573 0.5160469782313699]
+    random_x0 = [runif[1]*0.1 runif[2]*0.1 runif[3]*5 runif[4]]
     export_capital = [0.02418637762166339 0.009981563333990941 2.78587983396864 0.4945699355632398]
     sunk_cost = [0.5704358764309491 0.05389818114125237 1.6741901913074753 0.4352053721156689 0.14822662063483324]
-    opt_res_canon_random = optimize(MSM_delta_func_first3, sunk_cost)
+    opt_res_canon_random = optimize(MSM_delta_func_first3, random_x0)
     minimizers_canon_random = transpose(Optim.minimizer(opt_res_canon_random))
     #println(minimizers_canon_random[1:3])
     println(Optim.minimum(opt_res_canon_random))
