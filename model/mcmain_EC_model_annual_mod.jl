@@ -1046,7 +1046,7 @@ function dynamic_probit(prim::Primitives, firms_export_decisions, firms_capital_
     end
 end
 
-function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve::Int64, filename::AbstractString)
+function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve::Int64, filename::AbstractString, length::Int64)
     Random.seed!(17)
     @unpack Q_grid, ϵ_grid, n_periods_experiment, n_firms, n_sims, ρ_q, σ_q = prim #unpack primitives
     @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e, shocks_Q, shocks_ϵ = res #unpack results
@@ -1124,7 +1124,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 ϵ_experiment[i,j] = ϵ_grid[ϵ_index]
 
-                if i >= prim.n_periods-11 && i <= prim.n_periods-8
+                if i >= prim.n_periods-11 && i < prim.n_periods-11+length
                     firms_export_decisions[i,j,k] = tariff_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                 else
                     firms_export_decisions[i,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
@@ -1137,7 +1137,7 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
                     firms_sunk_cost_spending[i,j,k] = (1-res.prev_ex_grid[floor(Int, firms_export_capital[i-1,j,k])])*res.FC_0
                 end
                 
-                if i >= prim.n_periods-11 && i <= prim.n_periods-8
+                if i >= prim.n_periods-11 && i < prim.n_periods-11+length
                     res.τ = tariff/100
                     firms_labor_decisions[i,j,k] = tariff_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
                     firms_capital_decisions[i,j,k] = tariff_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
