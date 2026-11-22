@@ -21,8 +21,8 @@
     nϵ::Int64 = 101 #Number of Productivity states 
     ϵ_grid::Array{Float64,1} = collect(range(ϵ_min, length = nϵ, stop = ϵ_max)) # Productivity Grid
 
-    n_periods::Int64 = 262 # Number of periods
-    n_periods_experiment::Int64 = n_periods # Number of periods
+    n_periods::Int64 = 300 # Number of periods
+    n_periods_experiment::Int64 = 300 # Number of periods
     n_firms::Int64 = 2826 # Number of Firms
     n_sims::Int64 = 1000 # Number of simulations
 
@@ -1111,6 +1111,17 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
         Random.seed!(k)
         for i = 2:n_periods_experiment
 
+            i_mod = i % 100
+            if i_mod == 0
+                i_mod = 100
+            end
+
+            if i_mod == 1
+                i_mod_minus_1 = 100
+            else
+                i_mod_minus_1 = i_mod-1
+            end
+
             Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + shocks_Q[i,k]*σ_q)
             if Q_experiment[i] > 3
                 Q_experiment[i] == 3
@@ -1124,111 +1135,111 @@ function tariff_experiment(prim::Primitives, res::Results, tariff::Int64, solve:
                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 ϵ_experiment[i,j] = ϵ_grid[ϵ_index]
 
-                if i >= prim.n_periods-31 && i < prim.n_periods-31+length
-                    firms_export_decisions[i,j,k] = tariff_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+                if i >= prim.n_periods-61 && i < prim.n_periods-61+length
+                    firms_export_decisions[i_mod,j,k] = tariff_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i_mod_minus_1,j,k])]
                 else
-                    firms_export_decisions[i,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+                    firms_export_decisions[i_mod,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i_mod_minus_1,j,k])]
                 end
                 
-                if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
-                    firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
-                elseif firms_export_decisions[i,j,k] == 1
-                    firms_export_capital[i,j,k] = n_prev_ex
-                    firms_sunk_cost_spending[i,j,k] = (1-res.prev_ex_grid[floor(Int, firms_export_capital[i-1,j,k])])*res.FC_0
+                if firms_export_decisions[i_mod,j,k] == 0 && firms_export_capital[i_mod_minus_1,j,k] > 1
+                    firms_export_capital[i_mod,j,k] = firms_export_capital[i_mod_minus_1,j,k] - 1
+                elseif firms_export_decisions[i_mod,j,k] == 1
+                    firms_export_capital[i_mod,j,k] = n_prev_ex
+                    firms_sunk_cost_spending[i_mod,j,k] = (1-res.prev_ex_grid[floor(Int, firms_export_capital[i_mod_minus_1,j,k])])*res.FC_0
                 end
                 
-                if i >= prim.n_periods-31 && i < prim.n_periods-31+length
+                if i >= prim.n_periods-61 && i < prim.n_periods-61+length
                     res.τ = tariff/100
-                    firms_labor_decisions[i,j,k] = tariff_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                    firms_capital_decisions[i,j,k] = tariff_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                    firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                    firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                    firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                    firms_labor_decisions[i_mod,j,k] = tariff_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i_mod_minus_1,j,k])]
+                    firms_capital_decisions[i_mod,j,k] = tariff_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i_mod_minus_1,j,k])]
+                    firms_sales_non_exporter[i_mod,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i_mod,j,k] firms_capital_decisions[i_mod,j,k] firms_export_decisions[i_mod,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                    firms_sales[i_mod,j,k] = total_revenue(prim, res, [firms_labor_decisions[i_mod,j,k] firms_capital_decisions[i_mod,j,k] firms_export_decisions[i_mod,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                    firms_export_sales[i_mod,j,k] = export_revenue(prim, res, [firms_labor_decisions[i_mod,j,k] firms_capital_decisions[i_mod,j,k] firms_export_decisions[i_mod,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
                 else
                     res.τ = 0
-                    firms_labor_decisions[i,j,k] = normal_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                    firms_capital_decisions[i,j,k] = normal_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                    firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                    firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                    firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                    firms_labor_decisions[i_mod,j,k] = normal_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i_mod_minus_1,j,k])]
+                    firms_capital_decisions[i_mod,j,k] = normal_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i_mod_minus_1,j,k])]
+                    firms_sales_non_exporter[i_mod,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i_mod,j,k] firms_capital_decisions[i_mod,j,k] firms_export_decisions[i_mod,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                    firms_sales[i_mod,j,k] = total_revenue(prim, res, [firms_labor_decisions[i_mod,j,k] firms_capital_decisions[i_mod,j,k] firms_export_decisions[i_mod,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+                    firms_export_sales[i_mod,j,k] = export_revenue(prim, res, [firms_labor_decisions[i_mod,j,k] firms_capital_decisions[i_mod,j,k] firms_export_decisions[i_mod,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
                 end    
                 # x[1] is labor choice, x[2] is capital, x[3] is export decision, x[4] is productivity, and x[5] is export capital, x[6] is Q, x[7] is FC_0, x[8] is FC_1
-                firms_profits[i,j,k] = profit_func(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] res.prev_ex_grid[floor(Int, firms_export_capital[i-1,j,k])] Q_grid[Q_index] res.FC_0 res.FC_1])
+                firms_profits[i_mod,j,k] = profit_func(prim, res, [firms_labor_decisions[i_mod,j,k] firms_capital_decisions[i_mod,j,k] firms_export_decisions[i_mod,j,k] ϵ_grid[ϵ_index] res.prev_ex_grid[floor(Int, firms_export_capital[i_mod_minus_1,j,k])] Q_grid[Q_index] res.FC_0 res.FC_1])
             end
         end
     end
 
-    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales, firms_sunk_cost_spending, firms_profits, firms_export_capital
+    return firms_export_decisions, firms_sales, firms_export_sales, firms_sunk_cost_spending, firms_profits, firms_export_capital
 
 end
 
-function Q_experiment(prim::Primitives, res::Results, filename::AbstractString)
-    Random.seed!(17)
-    @unpack Q_grid, ϵ_grid, n_periods_experiment, n_firms, n_sims, ρ_q, σ_q = prim #unpack primitives
-    @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e, shocks_Q, shocks_ϵ = res #unpack results
+# function Q_experiment(prim::Primitives, res::Results, filename::AbstractString)
+#     Random.seed!(17)
+#     @unpack Q_grid, ϵ_grid, n_periods_experiment, n_firms, n_sims, ρ_q, σ_q = prim #unpack primitives
+#     @unpack Q_experiment, ϵ_experiment, n_prev_ex, ex_cap, ρ_e, σ_e, shocks_Q, shocks_ϵ = res #unpack results
 
-    Solve_model(prim, res)
+#     Solve_model(prim, res)
 
-    normal_val_func = res.val_func
-    normal_ex_func = res.ex_func
-    normal_n_func = res.n_func
-    normal_k_func = res.k_func
+#     normal_val_func = res.val_func
+#     normal_ex_func = res.ex_func
+#     normal_n_func = res.n_func
+#     normal_k_func = res.k_func
 
-    firms_export_capital = ones(n_periods_experiment, n_firms, n_sims)
-    firms_export_decisions = zeros(n_periods_experiment, n_firms, n_sims)
-    firms_labor_decisions = ones(n_periods_experiment, n_firms, n_sims)
-    firms_capital_decisions = ones(n_periods_experiment, n_firms, n_sims)
-    firms_sales_non_exporter = zeros(n_periods_experiment, n_firms, n_sims)
-    firms_sales = zeros(n_periods_experiment, n_firms, n_sims)
-    firms_export_sales = zeros(n_periods_experiment, n_firms, n_sims)
+#     firms_export_capital = ones(n_periods_experiment, n_firms, n_sims)
+#     firms_export_decisions = zeros(n_periods_experiment, n_firms, n_sims)
+#     firms_labor_decisions = ones(n_periods_experiment, n_firms, n_sims)
+#     firms_capital_decisions = ones(n_periods_experiment, n_firms, n_sims)
+#     firms_sales_non_exporter = zeros(n_periods_experiment, n_firms, n_sims)
+#     firms_sales = zeros(n_periods_experiment, n_firms, n_sims)
+#     firms_export_sales = zeros(n_periods_experiment, n_firms, n_sims)
 
-    for k = 1:n_sims
-        Random.seed!(k)
-        for i = 2:n_periods_experiment
+#     for k = 1:n_sims
+#         Random.seed!(k)
+#         for i = 2:n_periods_experiment
 
-            if i != prim.n_periods-6
-                Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + shocks_Q[i,k]*σ_q)
-                Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
-                Q_experiment[i] = Q_grid[Q_index]
-            else
-                Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) - 0.1)
-                Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
-                Q_experiment[i] = Q_grid[Q_index]
-            end
+#             if i != prim.n_periods-6
+#                 Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) + shocks_Q[i,k]*σ_q)
+#                 Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
+#                 Q_experiment[i] = Q_grid[Q_index]
+#             else
+#                 Q_experiment[i] = exp(ρ_q*log(Q_experiment[i-1]) - 0.1)
+#                 Q_index = findmin(abs.(Q_experiment[i] .- Q_grid))[2]
+#                 Q_experiment[i] = Q_grid[Q_index]
+#             end
 
-            # Fix Q=1 except for one period it falls to 0.9
-            # if i == prim.n_periods-6
-            #     Q_experiment[i] = 0.9
-            #     Q_index = 2
-            # else
-            #     Q_experiment[i] = 1
-            #     Q_index = 3
-            # end
+#             # Fix Q=1 except for one period it falls to 0.9
+#             # if i == prim.n_periods-6
+#             #     Q_experiment[i] = 0.9
+#             #     Q_index = 2
+#             # else
+#             #     Q_experiment[i] = 1
+#             #     Q_index = 3
+#             # end
 
-            for j = 1:n_firms
+#             for j = 1:n_firms
                 
-                ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + shocks_ϵ[i,j,k]*σ_e)
-                ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
+#                 ϵ_experiment[i,j] = exp(ρ_e*log(ϵ_experiment[i-1,j]) + shocks_ϵ[i,j,k]*σ_e)
+#                 ϵ_index = findmin(abs.(ϵ_experiment[i,j] .- ϵ_grid))[2]
                 
-                firms_export_decisions[i,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
-                    firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
-                elseif firms_export_decisions[i,j,k] == 1
-                    firms_export_capital[i,j,k] = n_prev_ex
-                end
+#                 firms_export_decisions[i,j,k] = normal_ex_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+#                 if firms_export_decisions[i,j,k] == 0 && firms_export_capital[i-1,j,k] > 1
+#                     firms_export_capital[i,j,k] = firms_export_capital[i-1,j,k] - 1
+#                 elseif firms_export_decisions[i,j,k] == 1
+#                     firms_export_capital[i,j,k] = n_prev_ex
+#                 end
                 
-                firms_labor_decisions[i,j,k] = normal_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                firms_capital_decisions[i,j,k] = normal_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
-                firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-                firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
-            end
-        end
-    end
+#                 firms_labor_decisions[i,j,k] = normal_n_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+#                 firms_capital_decisions[i,j,k] = normal_k_func[Q_index, ϵ_index, floor(Int,firms_export_capital[i-1,j,k])]
+#                 firms_sales_non_exporter[i,j,k] = domestic_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+#                 firms_sales[i,j,k] = total_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+#                 firms_export_sales[i,j,k] = export_revenue(prim, res, [firms_labor_decisions[i,j,k] firms_capital_decisions[i,j,k] firms_export_decisions[i,j,k] ϵ_grid[ϵ_index] Q_grid[Q_index]])
+#             end
+#         end
+#     end
 
-    return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales
+#     return firms_export_decisions, firms_labor_decisions, firms_capital_decisions, firms_sales_non_exporter, firms_sales, firms_export_sales
 
-end
+# end
 
 function export_experience_experiment(prim::Primitives, res::Results, filename::AbstractString)
     Random.seed!(17)
